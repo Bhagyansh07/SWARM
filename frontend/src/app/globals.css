@@ -1,0 +1,300 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --paper: oklch(0.155 0.004 60);
+  --paper-2: oklch(0.185 0.005 60);
+  --paper-3: oklch(0.225 0.006 60);
+  --line: oklch(0.3 0.006 60 / 0.6);
+  --line-strong: oklch(0.42 0.008 60);
+  --ink: oklch(0.9 0.005 60);
+  --dim: oklch(0.7 0.006 60);
+  --faint: oklch(0.52 0.006 60);
+  --signal: oklch(0.72 0.185 45);
+  --signal-dim: oklch(0.72 0.185 45 / 0.16);
+  --ok: oklch(0.78 0.12 150);
+  --warn: oklch(0.8 0.11 85);
+  --bad: oklch(0.66 0.16 25);
+  --field: oklch(0.13 0.004 60);
+  --grid: linear-gradient(to right, oklch(0.32 0.006 60 / 0.13) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(0.32 0.006 60 / 0.13) 1px, transparent 1px);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-display), system-ui, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  scroll-behavior: smooth;
+  font-feature-settings: 'tnum';
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: transparent;
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--signal-dim);
+  color: var(--ink);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--paper);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--paper-3);
+  border: 2px solid var(--paper);
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--line-strong);
+}
+
+a {
+  color: inherit;
+}
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 1px solid var(--signal);
+  outline-offset: 2px;
+}
+
+.font-display {
+  font-family: var(--font-display), sans-serif;
+}
+.font-mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.text-faint {
+  color: var(--faint);
+}
+.text-dim {
+  color: var(--dim);
+}
+
+.bg-grid {
+  background-image: var(--grid);
+  background-size: 28px 28px;
+}
+
+.glyph {
+  stroke: currentColor;
+  stroke-width: 1;
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+/* ---- instrument surfaces ---- */
+
+.panel {
+  background: color-mix(in oklch, var(--paper-2) 92%, transparent);
+  border: 1px solid var(--line);
+}
+.panel-head {
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in oklch, var(--paper) 70%, transparent);
+}
+.rack-index {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  white-space: nowrap;
+}
+
+/* square instrument LED */
+.led {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  flex: none;
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, currentColor 40%, transparent);
+}
+.led-live {
+  animation: led 1.4s step-end infinite;
+}
+
+/* ---- launcher patch bay ---- */
+
+.patch-row {
+  position: relative;
+  display: block;
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in oklch, var(--field) 60%, transparent);
+  transition: border-color 0.12s ease-out, background 0.12s ease-out;
+}
+.patch-row:hover {
+  border-color: var(--dim);
+  background: var(--paper-2);
+}
+.patch-row::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  top: 0;
+  height: 100%;
+  width: 1px;
+  background: var(--faint);
+  opacity: 0.4;
+}
+.patch-row.active {
+  border-color: var(--signal);
+  background: var(--signal-dim);
+  box-shadow: 0 0 0 1px var(--signal), 0 0 16px color-mix(in oklch, var(--signal) 22%, transparent);
+}
+.patch-row.active::after {
+  background: var(--signal);
+  opacity: 1;
+  box-shadow: 0 0 8px var(--signal);
+}
+.patch-row.active .patch-name {
+  color: var(--signal);
+}
+
+/* ---- launch key ---- */
+
+.key {
+  position: relative;
+  border: 1px solid color-mix(in oklch, var(--signal) 70%, white);
+  background: var(--signal);
+  color: var(--field);
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  box-shadow: 0 4px 18px color-mix(in oklch, var(--signal) 30%, transparent), inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+  transition: transform 0.05s ease-out, background 0.12s ease-out, border-color 0.12s ease-out, box-shadow 0.12s ease-out;
+}
+.key:hover {
+  background: color-mix(in oklch, var(--signal) 88%, white);
+  border-color: var(--signal);
+  box-shadow: 0 6px 26px color-mix(in oklch, var(--signal) 45%, transparent), inset 0 -2px 0 rgba(0, 0, 0, 0.2);
+}
+.key:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 8px color-mix(in oklch, var(--signal) 25%, transparent), inset 0 1px 0 rgba(0, 0, 0, 0.25);
+}
+.key:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  box-shadow: none;
+}
+
+.ghost {
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--dim);
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: color 0.12s ease-out, border-color 0.12s ease-out;
+  cursor: pointer;
+}
+.ghost:hover {
+  color: var(--signal);
+  border-color: var(--signal);
+}
+.ghost:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+/* fields */
+.field {
+  border: 1px solid var(--line);
+  background: var(--field);
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+.field:focus {
+  border-color: var(--signal);
+  box-shadow: inset 0 -1px 0 var(--signal), 0 0 10px color-mix(in oklch, var(--signal) 14%, transparent);
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--faint);
+}
+
+/* small telemetry readout row */
+.readout {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: var(--font-mono);
+}
+.readout-label {
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.readout-value {
+  font-size: 12.5px;
+  color: var(--dim);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.fade-up {
+  animation: fadeUp 0.45s ease-out both;
+}
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.react-flow__attribution {
+  display: none;
+}
+.react-flow__node {
+  border-radius: 0;
+}
+.react-flow__edge-path {
+  stroke: var(--line-strong);
+}
+.react-flow__handle {
+  width: 8px;
+  height: 8px;
+  background: var(--paper-3);
+  border: 1px solid var(--signal);
+  border-radius: 0;
+}

@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Mission {
+  id          String   @id @default(cuid())
+  name        String
+  template    String
+  prompt      String
+  status      String
+  provider    String   @default("simulation")
+  model       String   @default("qwen/qwen3.8-27b")
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  totalTokens Int      @default(0)
+  estCostUsd  Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  agents        Agent[]
+  knowledgeNodes KnowledgeNode[]
+  knowledgeEdges KnowledgeEdge[]
+  report        MissionReport?
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Agent {
+  id         String   @id @default(cuid())
+  missionId  String
+  role       String
+  name       String
+  avatar     String
+  status     String   @default("idle")
+  phase      String?
+  confidence Float    @default(0)
+  iterations Int      @default(0)
+  tokensUsed Int      @default(0)
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  messages AgentMessage[]
+
+  mission Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@index([missionId])
+}
+
+model AgentMessage {
+  id        String   @id @default(cuid())
+  agentId   String
+  seq       Int
+  type      String
+  content   String
+  meta      String?
+  createdAt DateTime @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, seq])
+}
+
+model KnowledgeNode {
+  id        String   @id @default(cuid())
+  missionId String
+  label     String
+  kind      String
+  group     Int      @default(0)
+  weight    Float    @default(1)
+  createdAt DateTime @default(now())
+
+  mission    Mission         @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  outgoingEdges KnowledgeEdge[] @relation("source")
+  incomingEdges KnowledgeEdge[] @relation("target")
+
+  @@index([missionId])
+}
+
+model KnowledgeEdge {
+  id        String   @id @default(cuid())
+  missionId String
+  sourceId  String
+  targetId  String
+  label     String?
+  createdAt DateTime @default(now())
+
+  mission Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  source  KnowledgeNode @relation("source", fields: [sourceId], references: [id], onDelete: Cascade)
+  target  KnowledgeNode @relation("target", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([missionId])
+}
+
+model MissionReport {
+  id          String   @id @default(cuid())
+  missionId   String   @unique
+  summary     String
+  keyFindings String?
+  risks       String?
+  verdict     String?
+  createdAt   DateTime @default(now())
+
+  mission Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+}
