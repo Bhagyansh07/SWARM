@@ -11,4 +11,5 @@ backend/prisma/dev.db-journal
 *.tsbuildinfo
 .DS_Store
 .vercel
+.next/
 .vscode/
