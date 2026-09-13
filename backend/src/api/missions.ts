@@ -3,7 +3,7 @@ import { z } from 'zod';
 import prisma from '../lib/prisma';
 import { logger } from '../lib/logger';
 import { Orchestrator, type OrchestratorEmit } from '../orchestrator/orchestrator';
-import { getTemplate, resolveConfiguration } from '../orchestrator/templates';
+import { getTemplate, resolveConfiguration, validateAgentOrder } from '../orchestrator/templates';
 import { AGENT_ROSTER, TEMPLATES, type AgentRole, type LaunchMissionInput, type MissionDetailDto } from '../types';
 import { resolveProvider, currentModel } from '../llm/provider';
 
@@ -17,8 +17,6 @@ const launchSchema = z.object({
   prompt: z.string().min(3).max(2000),
   config: z.object({ agents: z.array(z.string()).max(8).optional() }).optional(),
 });
-
-const ROLE_SET = new Set(Object.keys(AGENT_ROSTER));
 
 const RATE_LIMIT = { windowMs: 60_000, max: 12 };
 const launchHits = new Map<string, number[]>();
@@ -34,11 +32,6 @@ function recordLaunch(ip: string): void {
   const prev = launchHits.get(ip) ?? [];
   prev.push(Date.now());
   launchHits.set(ip, prev);
-}
-
-function validateOrder(order: string[]): order is AgentRole[] {
-  if (order.length === 0) return false;
-  return order.every((r) => ROLE_SET.has(r));
 }
 
 function toDetailDto(data: {
@@ -180,9 +173,15 @@ export function createMissionRouter(emit: EmitFn): Router {
       return;
     }
 
-    const { order } = resolveConfiguration(input.template, input.config);
-    if (!validateOrder(order)) {
+    let order: string[];
+    try {
+      ({ order } = resolveConfiguration(input.template, input.config));
+    } catch {
       res.status(400).json({ error: { code: 'INVALID_AGENTS', message: 'Agent list must be non-empty and contain only known roles.', details: {} } });
+      return;
+    }
+    if (!validateAgentOrder(order)) {
+      res.status(400).json({ error: { code: 'INVALID_AGENTS', message: 'Agent list must be non-empty and contain only executable roles.', details: {} } });
       return;
     }
 

@@ -21,6 +21,10 @@ describe('template registry', () => {
     const { order } = resolveConfiguration('deep_research', { agents: ['critic', 'synthesizer'] });
     expect(order).toEqual(['critic', 'synthesizer']);
   });
+
+  it('rejects non-executable orchestration roles', () => {
+    expect(() => resolveConfiguration('deep_research', { agents: ['orchestrator' as AgentRole] })).toThrow(/invalid agent configuration/);
+  });
 });
 
 describe('agent roster', () => {

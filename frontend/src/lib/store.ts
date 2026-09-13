@@ -120,7 +120,10 @@ export const useSession = create<SessionState>((set, get) => ({
 
     socket = io(socketUrl, { transports: ['websocket', 'polling'] });
 
-    socket.on('connect', () => set({ connected: true }));
+    socket.on('connect', () => {
+      set({ connected: true });
+      socket?.emit('mission:join', { missionId });
+    });
 
     socket.on('mission:created', (p: { missionId: string; name: string }) => {
       set({ missionId: p.missionId, missionName: p.name });

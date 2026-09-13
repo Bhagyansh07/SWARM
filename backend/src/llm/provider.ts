@@ -45,8 +45,8 @@ export async function llmTurn(req: LlmTurnRequest): Promise<LlmTurnResponse> {
       const { content, tokensUsed } = await groqComplete(req.systemPrompt, req.prompt, {
         temperature: 0.6,
         maxTokens: 750,
+        onChunk: req.onChunk,
       });
-      req.onChunk(content);
       return { content, tokensUsed, provider: 'groq' };
     } catch (err) {
       logger.warn('groq request failed, falling back to simulation', {

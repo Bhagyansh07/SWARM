@@ -22,7 +22,8 @@ const io = new Server(server, {
 });
 
 function emit(event: string, payload: Record<string, unknown>) {
-  io.emit(event, payload);
+  const missionId = typeof payload.missionId === 'string' ? payload.missionId : null;
+  if (missionId) io.to(`mission:${missionId}`).emit(event, payload);
 }
 
 app.use('/api', createMissionRouter(emit));
