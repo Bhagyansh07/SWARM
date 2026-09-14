@@ -26,7 +26,7 @@ export default function Page() {
       <Topbar />
 
       <main className="mx-auto w-full max-w-[1180px] flex-1 px-5">
-        <section className="hero-grid grid gap-8 border-b border-[var(--line)] pb-12 pt-12 lg:grid-cols-[1.08fr_0.92fr] lg:gap-14 lg:pb-16 lg:pt-16">
+        <section className="hero-grid grid gap-8 border-b border-[var(--line)] pb-10 pt-12 lg:grid-cols-[0.82fr_1.18fr] lg:items-center lg:gap-12 lg:pb-12 lg:pt-14">
           <div className="fade-up">
             <p className="font-mono m-0 flex items-center gap-2.5 text-[10.5px] uppercase tracking-[0.18em] text-[var(--faint)]">
               <StatusDot color="var(--ok)" live />
@@ -51,24 +51,31 @@ export default function Page() {
             </div>
           </div>
 
-          <div id="launcher" className="fade-up scroll-mt-20 lg:pt-4" style={{ animationDelay: '80ms' }}>
-            <div className="panel launcher-panel">
-              <header className="panel-head flex items-center justify-between gap-3 px-4 py-2">
-                <h3 className="font-display m-0 text-[12px] font-bold uppercase tracking-[0.2em] text-[var(--ink)]">
-                  <span className="rack-index mr-2 align-middle">DECK-0</span>
-                  Launch unit
-                </h3>
-                <span className="rack-index">pick a pattern · patch the subject</span>
-              </header>
-              <div className="p-4">
-                <DemoLauncher />
-              </div>
-            </div>
+          <div className="fade-up order-first lg:order-last" style={{ animationDelay: '80ms' }}>
+            <SwarmWorld />
           </div>
         </section>
 
-        <section className="mt-8" aria-label="SWARM constellation preview">
-          <SwarmWorld />
+        <section id="launcher" className="scroll-mt-20 border-b border-[var(--line)] py-8" aria-label="Mission launcher">
+          <div className="mb-5 flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+            <div>
+              <p className="rack-index m-0">01 / launch a mission</p>
+              <h2 className="font-display m-0 mt-2 text-[24px] font-black uppercase tracking-[0.04em] text-[var(--ink)]">Give the constellation a question</h2>
+            </div>
+            <p className="font-mono m-0 max-w-[260px] text-[10px] uppercase leading-relaxed tracking-[0.12em] text-[var(--faint)]">Choose a pattern, patch the subject, and watch four minds take the field.</p>
+          </div>
+          <div className="panel launcher-panel">
+            <header className="panel-head flex items-center justify-between gap-3 px-4 py-2">
+              <h3 className="font-display m-0 text-[12px] font-bold uppercase tracking-[0.2em] text-[var(--ink)]">
+                <span className="rack-index mr-2 align-middle">DECK-0</span>
+                Launch unit
+              </h3>
+              <span className="rack-index">pick a pattern · patch the subject</span>
+            </header>
+            <div className="p-4">
+              <DemoLauncher />
+            </div>
+          </div>
         </section>
 
         <section className="mt-16 border-t border-[var(--line)] pt-8 lg:mt-20">

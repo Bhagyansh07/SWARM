@@ -88,13 +88,13 @@ export function SwarmWorld() {
   }
 
   return (
-    <div className="relative h-[390px] overflow-hidden border-y border-[var(--line)] bg-[var(--field)]" aria-label="SWARM agent constellation preview">
+    <div className="relative h-[430px] overflow-hidden border border-[var(--line)] bg-[#261338] shadow-[0_18px_60px_rgba(110,55,160,0.22)]" aria-label="SWARM agent constellation preview">
       <div className="pointer-events-none absolute left-4 top-4 z-10">
         <p className="rack-index m-0">constellation / live protocol</p>
         <p className="font-mono m-0 mt-1 text-[10px] uppercase tracking-[0.12em] text-[var(--faint)]">four minds · shared signal · one verdict</p>
       </div>
       <Canvas dpr={[1, 1.5]} gl={{ antialias: true }}>
-        <color attach="background" args={['#101211']} />
+        <color attach="background" args={['#261338']} />
         <PerspectiveCamera makeDefault position={[0, 0, 8]} fov={42} />
         <ambientLight intensity={0.32} />
         <pointLight position={[0, 0, 4]} intensity={1.1} color="#ff6d9d" />
