@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
+import type { MissionDetailDto } from '@/lib/types';
 import { AgentStrip, AgentOrbit } from '@/components/dashboard/agent-orbit';
 import { ReasoningStream } from '@/components/dashboard/reasoning-stream';
 import { MissionReplay } from '@/components/dashboard/mission-replay';
@@ -10,7 +12,9 @@ import { Panel, StatusDot, Step } from '@/components/ui';
 import { formatClock, formatDuration, statusColor, useNow } from '@/lib/hooks';
 import { useSession } from '@/lib/store';
 
-export function MissionDashboard({ initial, readOnly = false }: { initial: { name?: string; status: string; provider: string; model: string; startedAt: string; completedAt: string | null } | null; readOnly?: boolean }) {
+const MissionScene = dynamic(() => import('@/components/dashboard/mission-scene').then((mod) => mod.MissionScene), { ssr: false });
+
+export function MissionDashboard({ initial, readOnly = false }: { initial: MissionDetailDto | null; readOnly?: boolean }) {
   const now = useNow(500);
   const [activeTab, setActiveTab] = useState<'stream' | 'report' | 'replay'>('stream');
 
@@ -31,15 +35,22 @@ export function MissionDashboard({ initial, readOnly = false }: { initial: { nam
 
   const activeProvider = provider ?? initial?.provider ?? 'simulation';
   const activeModel = model ?? initial?.model ?? 'deterministic-sim';
+  const effectiveStatus = readOnly ? initial?.status ?? status : status;
+  const displayAgents = Object.values(agents).length ? Object.values(agents) : initial?.agents ?? [];
+  const displayNodes = Object.values(nodes).length ? Object.values(nodes) : initial?.nodes ?? [];
+  const displayEdges = edges.length ? edges : initial?.edges ?? [];
+  const displayMessages = messages.length ? messages : initial?.messages ?? [];
+  const displayReport = report ?? initial?.report ?? null;
+  const displayAnalytics = analytics ?? initial?.analytics ?? null;
   const startedAt = initial?.startedAt ?? new Date().toISOString();
-  const isRunning = status === 'running' || status === 'queued' || status === 'connecting' || status === 'thinking';
+  const isRunning = effectiveStatus === 'running' || effectiveStatus === 'queued' || effectiveStatus === 'connecting' || effectiveStatus === 'thinking';
   const elapsed = isRunning ? now - new Date(startedAt).getTime() : analytics?.durationMs ?? 0;
-  const color = statusColor(status);
-  const tokens = Object.values(agents).reduce((s, a) => s + a.tokensUsed, 0);
-  const confidence = Object.values(agents).length
-    ? Math.round((Object.values(agents).reduce((sum, agent) => sum + agent.confidence, 0) / Object.values(agents).length) * 100)
+  const color = statusColor(effectiveStatus);
+  const tokens = displayAgents.reduce((s, a) => s + a.tokensUsed, 0);
+  const confidence = displayAgents.length
+    ? Math.round((displayAgents.reduce((sum, agent) => sum + agent.confidence, 0) / displayAgents.length) * 100)
     : 0;
-  const dissent = messages.filter((message) => message.type === 'critique').length;
+  const dissent = displayMessages.filter((message) => message.type === 'critique').length;
 
   return (
     <div className="flex flex-col gap-4 pb-16">
@@ -47,7 +58,7 @@ export function MissionDashboard({ initial, readOnly = false }: { initial: { nam
         <div>
           <p className="font-mono m-0 flex items-center gap-2 text-[10.5px] uppercase tracking-[0.18em] text-[var(--faint)]">
             <StatusDot color={color} live={isRunning} />
-            {readOnly ? 'shared read-only deck' : 'command deck'} / mission {status === 'complete' ? 'complete' : status === 'failed' ? 'failed' : 'in flight'}
+            {readOnly ? 'shared read-only deck' : 'command deck'} / mission {effectiveStatus === 'complete' ? 'complete' : effectiveStatus === 'failed' ? 'failed' : 'in flight'}
           </p>
           <h1 className="font-display m-0 mt-3 max-w-[24ch] text-[28px] font-black uppercase tracking-[0.02em] text-[var(--ink)] sm:text-[34px]">
             {initial?.name ?? 'Untitled mission'}
@@ -62,7 +73,7 @@ export function MissionDashboard({ initial, readOnly = false }: { initial: { nam
         </div>
         <div className="font-mono flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-[0.12em] text-[var(--dim)] sm:justify-end">
           <span className="border border-[var(--line-strong)] px-2.5 py-1.5" style={{ color }}>
-            {status}
+            {effectiveStatus}
           </span>
           <span className="border border-[var(--line)] px-2.5 py-1.5">t+{formatDuration(elapsed)}</span>
         </div>
@@ -70,7 +81,7 @@ export function MissionDashboard({ initial, readOnly = false }: { initial: { nam
 
       <div className="grid grid-cols-2 gap-px border border-[var(--line)] bg-[var(--line)] sm:grid-cols-5">
         {[
-          ['agents', `${Object.keys(agents).length || 4}`, 'active lanes'],
+            ['agents', `${displayAgents.length || 4}`, 'active lanes'],
           ['confidence', `${confidence}%`, 'swarm average'],
           ['dissent', `${dissent}`, 'open attacks'],
           ['graph', `${Object.keys(nodes).length} / ${edges.length}`, 'nodes / edges'],
@@ -84,6 +95,8 @@ export function MissionDashboard({ initial, readOnly = false }: { initial: { nam
         ))}
       </div>
 
+      <MissionScene agents={displayAgents} nodes={displayNodes} edges={displayEdges} />
+
       {error && (
         <p className="font-mono m-0 border border-[var(--bad)] bg-[color-mix(in_oklch,var(--bad)_10%,transparent)] px-4 py-2 text-[12px] text-[var(--bad)]">
           {error}
@@ -93,24 +106,24 @@ export function MissionDashboard({ initial, readOnly = false }: { initial: { nam
       <div className="grid gap-4 lg:grid-cols-[300px_1fr_340px]">
         {/* left: roster + orbit */}
         <div className="flex flex-col gap-4">
-          <Panel title="Swarm roster" index="ACT.00" right={<StatusDot color={connected ? color : 'var(--bad)'} live={connected && !status.includes('complete')} />}>
+          <Panel title="Swarm roster" index="ACT.00" right={<StatusDot color={connected || readOnly ? color : 'var(--bad)'} live={(connected || readOnly) && !effectiveStatus.includes('complete')} />}>
             <div className="px-4 pt-4">
-              <AgentOrbit agents={Object.values(agents)} />
+              <AgentOrbit agents={displayAgents} />
             </div>
             <div className="mt-2">
-              <AgentStrip agents={Object.values(agents)} />
+              <AgentStrip agents={displayAgents} />
             </div>
           </Panel>
           <Panel title="Elapsed telemetry" index="TEL.01">
             <div className="space-y-2 px-4 py-3">
               <Step label="elapsed" value={formatDuration(elapsed)} />
               <Step label="tokens" value={String(tokens)} />
-              <Step label="stream" value={`${messages.length} msgs`} />
-              <Step label="graph" value={`${Object.keys(nodes).length} n / ${edges.length} e`} />
-              {report && analytics && (
+              <Step label="stream" value={`${messages.length || initial?.messages.length || 0} msgs`} />
+              <Step label="graph" value={`${displayNodes.length} n / ${displayEdges.length} e`} />
+              {displayReport && displayAnalytics && (
                 <>
-                  <Step label="est. cost" value={`$${analytics.estCostUsd.toFixed(5)}`} />
-                  <Step label="finished" value={formatClock(analytics.completedAt)} />
+                  <Step label="est. cost" value={`$${displayAnalytics.estCostUsd.toFixed(5)}`} />
+                  <Step label="finished" value={formatClock(displayAnalytics.completedAt)} />
                 </>
               )}
             </div>
@@ -146,7 +159,7 @@ export function MissionDashboard({ initial, readOnly = false }: { initial: { nam
               </div>
             }
           >
-            {activeTab === 'stream' ? <ReasoningStream messages={messages} chunks={chunks} status={status} /> : activeTab === 'report' ? <ReportPanel report={report} analytics={analytics} /> : <MissionReplay messages={messages} />}
+            {activeTab === 'stream' ? <ReasoningStream messages={displayMessages} chunks={chunks} status={effectiveStatus} /> : activeTab === 'report' ? <ReportPanel report={displayReport} analytics={displayAnalytics} /> : <MissionReplay messages={displayMessages} />}
           </Panel>
         </div>
 
