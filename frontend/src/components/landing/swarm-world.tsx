@@ -42,20 +42,20 @@ function WorldCamera() {
     <group ref={group}>
       <mesh position={[0, 0, -0.35]}>
         <sphereGeometry args={[0.58, 20, 20]} />
-        <meshStandardMaterial color="#d7a05d" emissive="#d7a05d" emissiveIntensity={0.55} metalness={0.6} roughness={0.26} />
+        <meshStandardMaterial color="#ff6d9d" emissive="#ff6d9d" emissiveIntensity={0.55} metalness={0.6} roughness={0.26} />
       </mesh>
       <mesh position={[0, 0, -0.35]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.9, 0.012, 8, 96]} />
-        <meshBasicMaterial color="#d7a05d" transparent opacity={0.75} />
+        <meshBasicMaterial color="#ff6d9d" transparent opacity={0.75} />
       </mesh>
       <mesh position={[0, 0, -0.35]} rotation={[Math.PI / 2, 0.35, 0]}>
         <torusGeometry args={[1.35, 0.008, 8, 96]} />
-        <meshBasicMaterial color="#68716d" transparent opacity={0.6} />
+        <meshBasicMaterial color="#8f7cff" transparent opacity={0.6} />
       </mesh>
       {roles.map((item, index) => <Agent key={item.role} item={item} index={index} />)}
       {roles.map((item, index) => {
         const next = roles[(index + 1) % roles.length];
-        return <Line key={`${item.role}-link`} points={[item.position, next.position]} color="#d7a05d" transparent opacity={0.42} lineWidth={0.65} dashed dashSize={0.12} gapSize={0.12} />;
+        return <Line key={`${item.role}-link`} points={[item.position, next.position]} color={index % 2 ? '#8f7cff' : '#ff6d9d'} transparent opacity={0.56} lineWidth={0.8} dashed dashSize={0.12} gapSize={0.12} />;
       })}
       <Line points={[[0, 0, -0.35], [-2.4, 1.1, 0]]} color="#8be28b" transparent opacity={0.38} lineWidth={0.45} />
       <Line points={[[0, 0, -0.35], [2.4, -1.1, 0]]} color="#ef876f" transparent opacity={0.38} lineWidth={0.45} />
@@ -97,7 +97,7 @@ export function SwarmWorld() {
         <color attach="background" args={['#101211']} />
         <PerspectiveCamera makeDefault position={[0, 0, 8]} fov={42} />
         <ambientLight intensity={0.32} />
-        <pointLight position={[0, 0, 4]} intensity={1.1} color="#d7a05d" />
+        <pointLight position={[0, 0, 4]} intensity={1.1} color="#ff6d9d" />
         <WorldCamera />
         <OrbitControls enablePan={false} minDistance={5.5} maxDistance={10} autoRotate autoRotateSpeed={0.18} />
       </Canvas>

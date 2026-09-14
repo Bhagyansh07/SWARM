@@ -22,7 +22,7 @@ const FLIGHT_PLAN = [
 
 export default function Page() {
   return (
-    <div className="bg-grid flex min-h-screen flex-col">
+    <div className="landing-shell bg-grid flex min-h-screen flex-col">
       <Topbar />
 
       <main className="mx-auto w-full max-w-[1180px] flex-1 px-5">
