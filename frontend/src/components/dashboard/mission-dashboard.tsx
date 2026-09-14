@@ -29,6 +29,8 @@ export function MissionDashboard({ initial, readOnly = false }: { initial: { nam
     error,
   } = useSession();
 
+  const activeProvider = provider ?? initial?.provider ?? 'simulation';
+  const activeModel = model ?? initial?.model ?? 'deterministic-sim';
   const startedAt = initial?.startedAt ?? new Date().toISOString();
   const isRunning = status === 'running' || status === 'queued' || status === 'connecting' || status === 'thinking';
   const elapsed = isRunning ? now - new Date(startedAt).getTime() : analytics?.durationMs ?? 0;
@@ -51,7 +53,11 @@ export function MissionDashboard({ initial, readOnly = false }: { initial: { nam
             {initial?.name ?? 'Untitled mission'}
           </h1>
           <p className="font-mono m-0 mt-2 text-[11px] uppercase tracking-[0.14em] text-[var(--faint)]">
-            {provider ?? '—'} / {model ?? '—'}
+            {activeProvider} / {activeModel}
+          </p>
+          <p className="font-mono m-0 mt-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.12em]" style={{ color: activeProvider === 'simulation' ? 'var(--warn)' : 'var(--ok)' }}>
+            <StatusDot color={activeProvider === 'simulation' ? 'var(--warn)' : 'var(--ok)'} live={activeProvider !== 'simulation'} />
+            {activeProvider === 'simulation' ? 'simulated run · no live LLM call' : `live inference · ${activeProvider}`}
           </p>
         </div>
         <div className="font-mono flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-[0.12em] text-[var(--dim)] sm:justify-end">

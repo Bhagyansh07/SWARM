@@ -63,8 +63,29 @@ export function KnowledgeGraph({ nodes, edges, height = 320 }: Props) {
 
   const list = Object.values(nodes);
 
+  const exportMermaid = () => {
+    const nodeId = new Map(list.map((node, index) => [node.id, `N${index + 1}`]));
+    const quote = (value: string) => value.replace(/"/g, "'").replace(/\n/g, ' ');
+    const lines = ['graph TD'];
+    for (const node of list) lines.push(`  ${nodeId.get(node.id)}["${quote(node.label)}"]`);
+    for (const edge of edges) {
+      const source = nodeId.get(edge.sourceId);
+      const target = nodeId.get(edge.targetId);
+      if (source && target) lines.push(`  ${source} -->|${quote(edge.label ?? 'relates')}| ${target}`);
+    }
+    const url = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'swarm-knowledge-graph.mmd';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="px-3 py-3">
+      <div className="flex justify-end pb-2">
+        <button onClick={exportMermaid} className="ghost px-3 py-1.5 text-[10px]">Export Mermaid</button>
+      </div>
       <svg viewBox="0 0 300 300" style={{ width: '100%', height }} role="img" aria-label="Mission knowledge graph">
         {layout.lines.map((l, i) => (
           <path key={i} d={l.d} fill="none" stroke="var(--line-strong)" strokeWidth={0.75} opacity={0.7} />
