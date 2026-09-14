@@ -10,6 +10,8 @@ jobs:
   backend:
     name: Backend — typecheck, test, build
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: file:./dev.db
     defaults:
       run:
         working-directory: backend
