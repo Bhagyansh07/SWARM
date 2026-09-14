@@ -3,6 +3,9 @@ import { Footer } from '@/components/site/footer';
 import { DemoLauncher } from '@/components/landing/demo-launcher';
 import { ArrowNote, GraphFrame, OrbitFrame, ReasoningStreamFrame } from '@/components/landing/showcase';
 import { StatusDot } from '@/components/ui';
+import dynamic from 'next/dynamic';
+
+const SwarmWorld = dynamic(() => import('@/components/landing/swarm-world').then((mod) => mod.SwarmWorld), { ssr: false });
 
 const SPECS = [
   ['agents', '04'],
@@ -62,6 +65,10 @@ export default function Page() {
               </div>
             </div>
           </div>
+        </section>
+
+        <section className="mt-8" aria-label="SWARM constellation preview">
+          <SwarmWorld />
         </section>
 
         <section className="mt-16 border-t border-[var(--line)] pt-8 lg:mt-20">
