@@ -10,7 +10,7 @@ import { Panel, StatusDot, Step } from '@/components/ui';
 import { formatClock, formatDuration, statusColor, useNow } from '@/lib/hooks';
 import { useSession } from '@/lib/store';
 
-export function MissionDashboard({ initial }: { initial: { name?: string; status: string; provider: string; model: string; startedAt: string; completedAt: string | null } | null }) {
+export function MissionDashboard({ initial, readOnly = false }: { initial: { name?: string; status: string; provider: string; model: string; startedAt: string; completedAt: string | null } | null; readOnly?: boolean }) {
   const now = useNow(500);
   const [activeTab, setActiveTab] = useState<'stream' | 'report' | 'replay'>('stream');
 
@@ -45,7 +45,7 @@ export function MissionDashboard({ initial }: { initial: { name?: string; status
         <div>
           <p className="font-mono m-0 flex items-center gap-2 text-[10.5px] uppercase tracking-[0.18em] text-[var(--faint)]">
             <StatusDot color={color} live={isRunning} />
-            command deck / mission {status === 'complete' ? 'complete' : status === 'failed' ? 'failed' : 'in flight'}
+            {readOnly ? 'shared read-only deck' : 'command deck'} / mission {status === 'complete' ? 'complete' : status === 'failed' ? 'failed' : 'in flight'}
           </p>
           <h1 className="font-display m-0 mt-3 max-w-[24ch] text-[28px] font-black uppercase tracking-[0.02em] text-[var(--ink)] sm:text-[34px]">
             {initial?.name ?? 'Untitled mission'}

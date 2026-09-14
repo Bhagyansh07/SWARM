@@ -25,6 +25,10 @@ export const api = {
 
   getMission: (id: string) => fetch(`/api/missions/${id}`).then((r) => j<{ data: MissionDetailDto }>(r)),
 
+  shareMission: (id: string) => fetch(`/api/missions/${id}/share`, { method: 'POST' }).then((r) => j<{ data: { token: string } }>(r)),
+
+  getSharedMission: (token: string) => fetch(`/api/shared/${token}`).then((r) => j<{ data: MissionDetailDto }>(r)),
+
   launch: (payload: { name?: string; template: string; prompt: string; config?: { agents: string[] } }) =>
     fetch('/api/missions', {
       method: 'POST',

@@ -11,8 +11,38 @@ export function ReportPanel({ report, analytics }: { report: LiveReport | null; 
       </p>
     );
   }
+  const exportMarkdown = () => {
+    const markdown = [
+      `# SWARM Mission Report`,
+      '',
+      `## Verdict`,
+      report.verdict,
+      '',
+      `## Summary`,
+      report.summary,
+      '',
+      `## Key Findings`,
+      ...report.keyFindings.map((finding) => `- ${finding}`),
+      '',
+      `## Risks`,
+      ...report.risks.map((risk) => `- ${risk}`),
+      '',
+      `## Telemetry`,
+      `- Tokens: ${analytics?.totalTokens ?? 0}`,
+      `- Estimated cost: $${analytics?.estCostUsd.toFixed(5) ?? '0.00000'}`,
+    ].join('\n');
+    const url = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'swarm-report.md';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
   return (
     <div className="space-y-5 px-4 py-4">
+      <div className="flex justify-end">
+        <button onClick={exportMarkdown} className="ghost px-3 py-1.5 text-[10px]">Export .md</button>
+      </div>
       <div className="flex items-start gap-3">
         <span className="led mt-1.5" aria-hidden style={{ background: 'var(--signal)', boxShadow: '0 0 6px var(--signal)' }} />
         <p className="font-display m-0 text-[15px] font-bold leading-relaxed text-[var(--ink)]">{report.verdict}</p>

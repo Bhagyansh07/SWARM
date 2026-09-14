@@ -7,6 +7,7 @@ import { Orchestrator, type OrchestratorEmit } from '../orchestrator/orchestrato
 import prisma from '../lib/prisma';
 import { resolveProvider, currentModel } from '../llm/provider';
 import type { AgentRole } from '../types';
+import { createRateLimiter, missionLaunchRateLimit } from '../lib/rate-limit';
 
 const roomFor = (missionId: string) => `mission:${missionId}`;
 
@@ -23,19 +24,7 @@ const launchSchema = z.object({
 });
 
 const joinSchema = z.object({ missionId: z.string().min(1).max(80) });
-const launchHits = new Map<string, number[]>();
-const SOCKET_RATE_LIMIT = { windowMs: 60_000, max: 12 };
-
-function isRateLimited(key: string): boolean {
-  const now = Date.now();
-  const hits = (launchHits.get(key) ?? []).filter((timestamp) => now - timestamp < SOCKET_RATE_LIMIT.windowMs);
-  launchHits.set(key, hits);
-  return hits.length >= SOCKET_RATE_LIMIT.max;
-}
-
-function recordLaunch(key: string): void {
-  launchHits.set(key, [...(launchHits.get(key) ?? []), Date.now()]);
-}
+const launchLimiter = createRateLimiter(missionLaunchRateLimit);
 
 export function wireSockets(io: Server, _server: HttpServer): void {
   io.on('connection', (socket) => {
@@ -49,8 +38,8 @@ export function wireSockets(io: Server, _server: HttpServer): void {
     });
 
     socket.on('mission:launch', async (payload: unknown) => {
-      if (isRateLimited(rateLimitKey)) {
-        socket.emit('mission:error', { message: `Too many launches. Chill for ${Math.ceil(SOCKET_RATE_LIMIT.windowMs / 1000)}s.` });
+      if (launchLimiter.limited(rateLimitKey)) {
+        socket.emit('mission:error', { message: `Too many launches. Chill for ${Math.ceil(missionLaunchRateLimit.windowMs / 1000)}s.` });
         return;
       }
       const parsed = launchSchema.safeParse(payload);
@@ -82,7 +71,7 @@ export function wireSockets(io: Server, _server: HttpServer): void {
         });
 
         socket.join(roomFor(mission.id));
-        recordLaunch(rateLimitKey);
+        launchLimiter.record(rateLimitKey);
         const emit = emitToMission(io);
         const evt: OrchestratorEmit = {
           agentUpdate: (p) => emit('agent:update', p),

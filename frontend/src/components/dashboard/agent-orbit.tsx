@@ -77,6 +77,7 @@ export function AgentStrip({ agents }: { agents: AgentStateDto[] }) {
             <span className="font-mono w-11 text-right text-[11px]" style={{ color: confidenceColor(a.confidence) }}>
               {Math.round(a.confidence * 100)}%
             </span>
+            <span className="font-mono hidden w-16 text-right text-[9px] text-[var(--faint)] sm:block">${a.estCostUsd.toFixed(5)}</span>
           </li>
         );
       })}

@@ -6,6 +6,9 @@ import { Orchestrator, type OrchestratorEmit } from '../orchestrator/orchestrato
 import { getTemplate, resolveConfiguration, validateAgentOrder } from '../orchestrator/templates';
 import { AGENT_ROSTER, TEMPLATES, type AgentRole, type LaunchMissionInput, type MissionDetailDto } from '../types';
 import { resolveProvider, currentModel } from '../llm/provider';
+import { v4 as uuid } from 'uuid';
+import { missionLaunchRateLimit, createRateLimiter } from '../lib/rate-limit';
+import { estimateTokenCost } from '../lib/pricing';
 
 export interface EmitFn {
   (event: string, payload: Record<string, unknown>): void;
@@ -18,21 +21,7 @@ const launchSchema = z.object({
   config: z.object({ agents: z.array(z.string()).max(8).optional() }).optional(),
 });
 
-const RATE_LIMIT = { windowMs: 60_000, max: 12 };
-const launchHits = new Map<string, number[]>();
-
-function rateLimited(ip: string): boolean {
-  const now = Date.now();
-  const bucket = (launchHits.get(ip) ?? []).filter((t) => now - t < RATE_LIMIT.windowMs);
-  launchHits.set(ip, bucket);
-  return bucket.length >= RATE_LIMIT.max;
-}
-
-function recordLaunch(ip: string): void {
-  const prev = launchHits.get(ip) ?? [];
-  prev.push(Date.now());
-  launchHits.set(ip, prev);
-}
+const launchLimiter = createRateLimiter(missionLaunchRateLimit);
 
 function toDetailDto(data: {
   mission: NonNullable<Awaited<ReturnType<typeof loadMissionCore>>>;
@@ -80,6 +69,7 @@ function toDetailDto(data: {
       confidence: a.confidence,
       iterations: a.iterations,
       tokensUsed: a.tokensUsed,
+      estCostUsd: estimateTokenCost(a.tokensUsed),
     })),
     messages: data.messages.map((msg) => ({
       id: msg.id,
@@ -154,8 +144,8 @@ export function createMissionRouter(emit: EmitFn): Router {
   });
 
   router.post('/missions', async (req: Request, res: Response) => {
-    if (rateLimited(req.ip ?? 'unknown')) {
-      res.status(429).json({ error: { code: 'RATE_LIMITED', message: `Too many launches. Chill for ${Math.ceil(RATE_LIMIT.windowMs / 1000)}s.`, details: {} } });
+    if (launchLimiter.limited(req.ip ?? 'unknown')) {
+      res.status(429).json({ error: { code: 'RATE_LIMITED', message: `Too many launches. Chill for ${Math.ceil(missionLaunchRateLimit.windowMs / 1000)}s.`, details: {} } });
       return;
     }
 
@@ -221,12 +211,49 @@ export function createMissionRouter(emit: EmitFn): Router {
       emit('mission:created', { missionId: mission.id, name: mission.name, startedAt: mission.startedAt.toISOString() });
 
       void orchestrator.start();
-      recordLaunch(req.ip ?? 'unknown');
+      launchLimiter.record(req.ip ?? 'unknown');
 
       res.status(201).json({ data: { id: mission.id, status: 'running' } });
     } catch (err) {
       logger.error('launch mission failed', { error: err instanceof Error ? err.message : String(err) });
       res.status(500).json({ error: { code: 'INTERNAL', message: 'Failed to launch mission.', details: {} } });
+    }
+  });
+
+  router.post('/missions/:id/share', async (req: Request, res: Response) => {
+    try {
+      const mission = await loadMissionCore(req.params.id);
+      if (!mission) {
+        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Mission not found.', details: {} } });
+        return;
+      }
+      const token = mission.shareToken ?? uuid();
+      if (!mission.shareToken) await prisma.mission.update({ where: { id: mission.id }, data: { shareToken: token } });
+      res.json({ data: { token } });
+    } catch (err) {
+      logger.error('share mission failed', { error: err instanceof Error ? err.message : String(err) });
+      res.status(500).json({ error: { code: 'INTERNAL', message: 'Failed to create share link.', details: {} } });
+    }
+  });
+
+  router.get('/shared/:token', async (req: Request, res: Response) => {
+    try {
+      const mission = await prisma.mission.findUnique({ where: { shareToken: req.params.token } });
+      if (!mission) {
+        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Shared mission not found.', details: {} } });
+        return;
+      }
+      const [agents, messages, nodes, edges, report] = await Promise.all([
+        prisma.agent.findMany({ where: { missionId: mission.id }, orderBy: { startedAt: 'asc' } }),
+        prisma.agentMessage.findMany({ where: { agent: { missionId: mission.id } }, orderBy: { seq: 'asc' }, include: { agent: { select: { role: true } } } }),
+        prisma.knowledgeNode.findMany({ where: { missionId: mission.id } }),
+        prisma.knowledgeEdge.findMany({ where: { missionId: mission.id } }),
+        prisma.missionReport.findUnique({ where: { missionId: mission.id } }),
+      ]);
+      res.json({ data: toDetailDto({ mission, agents, messages, nodes, edges, report }) });
+    } catch (err) {
+      logger.error('get shared mission failed', { error: err instanceof Error ? err.message : String(err) });
+      res.status(500).json({ error: { code: 'INTERNAL', message: 'Failed to load shared mission.', details: {} } });
     }
   });
 

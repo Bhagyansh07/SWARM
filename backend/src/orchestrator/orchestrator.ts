@@ -6,6 +6,8 @@ import { AnalystAgent } from '../agents/analyst';
 import { CriticAgent } from '../agents/critic';
 import { SynthesizerAgent } from '../agents/synthesizer';
 import { Agent, type AgentRuntime } from '../agents/base';
+import { estimateTokenCost } from '../lib/pricing';
+import { llmTurn } from '../llm/provider';
 
 export interface OrchestratorEmit {
   agentUpdate: (payload: Record<string, unknown>) => void;
@@ -70,9 +72,14 @@ export class Orchestrator {
       logger.info('mission started', { id: mission.id, name: this.name, order: this.order });
       this.emit.log('info', 'mission started', { id: mission.id, name: this.name, order: this.order });
 
-      for (const role of this.order) {
+      for (let index = 0; index < this.order.length; index += 1) {
+        const role = this.order[index];
         if (role === 'orchestrator' || role === 'researcher' || role === 'analyst' || role === 'critic' || role === 'synthesizer') {
-          await this.runAgent(role);
+          const confidence = await this.runAgent(role);
+          if (role === 'critic' && confidence < 0.4) {
+            const rebuttalRole = [...this.order.slice(0, index)].reverse().find((candidate) => candidate === 'researcher' || candidate === 'analyst');
+            if (rebuttalRole) await this.runRebuttal(rebuttalRole);
+          }
         }
       }
 
@@ -87,7 +94,7 @@ export class Orchestrator {
     }
   }
 
-  private async runAgent(role: AgentRole): Promise<void> {
+  private async runAgent(role: AgentRole): Promise<number> {
     const meta = AGENT_ROSTER[role];
     const dbAgent = await prisma.agent.create({
       data: {
@@ -130,6 +137,7 @@ export class Orchestrator {
           confidence: patch.confidence,
           iterations: patch.iterations,
           tokensUsed: agentTokens,
+          estCostUsd: estimateTokenCost(agentTokens),
         },
       });
     };
@@ -193,6 +201,34 @@ export class Orchestrator {
       where: { id: dbAgent.id },
       data: { status: 'done', finishedAt: new Date() },
     });
+    return Number((await prisma.agent.findUnique({ where: { id: dbAgent.id }, select: { confidence: true } }))?.confidence ?? 0);
+  }
+
+  private async runRebuttal(role: 'researcher' | 'analyst'): Promise<void> {
+    const meta = AGENT_ROSTER[role];
+    const dbAgent = await prisma.agent.create({
+      data: { missionId: this.missionId, role, name: meta.name, avatar: meta.avatar, status: 'working', phase: 'rebuttal', startedAt: new Date() },
+    });
+    let seq = await prisma.agentMessage.count({ where: { agent: { missionId: this.missionId } } });
+    const prior = this.sharedFindings;
+    const result = await llmTurn({
+      role,
+      prompt: `Mission objective: ${this.prompt}\n\nThe critic has challenged the current direction. As the ${role.toUpperCase()}, write a concise REBUTTAL: answer the strongest criticism with evidence, revise any weak claim, and state what remains uncertain. Label it as a rebuttal.`,
+      name: meta.name,
+      missionName: this.name,
+      template: this.templateKey,
+      previousFindings: prior,
+      systemPrompt: `You are ${meta.name}, providing a focused rebuttal after an adversarial review. Be specific and honest.`,
+      runSeed: this.runSeed + 1,
+      onChunk: (chunk) => this.emit.agentChunk({ missionId: this.missionId, agentId: dbAgent.id, role, chunk }),
+    });
+    const content = result.content.trim() || 'Rebuttal produced no additional evidence.';
+    seq += 1;
+    await prisma.agentMessage.create({ data: { agentId: dbAgent.id, seq, type: 'rebuttal', content } });
+    this.sharedFindings.push(content);
+    this.emit.agentMessage({ missionId: this.missionId, message: { id: `${dbAgent.id}-${seq}`, agentId: dbAgent.id, role, type: 'rebuttal', content, seq } });
+    this.totalTokens += result.tokensUsed;
+    await prisma.agent.update({ where: { id: dbAgent.id }, data: { status: 'done', phase: 'rebuttal:complete', confidence: 0.55, iterations: 1, tokensUsed: result.tokensUsed, finishedAt: new Date() } });
   }
 
   private buildAgent(role: AgentRole, runtime: AgentRuntime): Agent {
@@ -345,7 +381,6 @@ export class Orchestrator {
   }
 
   private estimateCost(tokens: number): number {
-    const perMillionOut = 0.59; // estimated per-token cost for the active model
-    return Number((tokens / 1_000_000 * perMillionOut).toFixed(6));
+    return estimateTokenCost(tokens);
   }
 }

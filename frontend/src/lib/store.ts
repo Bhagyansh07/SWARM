@@ -40,6 +40,7 @@ interface SessionState {
   lastAgentId: string | null;
 
   connect: (missionId: string, initial: MissionDetailDto | null, onTransition: () => void) => void;
+  disconnect: () => void;
   reset: () => void;
 }
 
@@ -90,6 +91,12 @@ export const useSession = create<SessionState>((set, get) => ({
       error: null,
       lastAgentId: null,
     });
+  },
+
+  disconnect: () => {
+    socket?.disconnect();
+    socket = null;
+    set({ connected: false, missionId: null, missionName: null });
   },
 
   connect: (missionId, initial, onTransition) => {

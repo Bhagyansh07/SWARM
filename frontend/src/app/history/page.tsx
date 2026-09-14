@@ -35,6 +35,15 @@ export default function HistoryPage() {
     }
   };
 
+  const share = async (id: string) => {
+    try {
+      const result = await api.shareMission(id);
+      await navigator.clipboard.writeText(`${window.location.origin}/shared/${result.data.token}`);
+    } catch {
+      setError('share failed');
+    }
+  };
+
   return (
     <div className="bg-grid flex min-h-screen flex-col">
       <Topbar />
@@ -84,6 +93,13 @@ export default function HistoryPage() {
                     <span className="font-mono w-24 text-right text-[10.5px] uppercase tracking-[0.12em]" style={{ color }}>
                       {m.status}
                     </span>
+                  </button>
+                  <button
+                    onClick={() => share(m.id)}
+                    aria-label="share mission"
+                    className="font-mono shrink-0 cursor-pointer border border-transparent bg-transparent px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-[var(--faint)] hover:border-[var(--signal)] hover:text-[var(--signal)]"
+                  >
+                    share
                   </button>
                   <button
                     onClick={() => del(m.id)}

@@ -14,6 +14,7 @@ function MissionView() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const connect = useSession((s) => s.connect);
+  const disconnect = useSession((s) => s.disconnect);
 
   const [initial, setInitial] = useState<MissionDetailDto | null>(null);
   const [miss, setMiss] = useState(false);
@@ -36,7 +37,8 @@ function MissionView() {
     if (initial) {
       connect(id, initial, () => undefined);
     }
-  }, [initial, id, connect]);
+    return () => disconnect();
+  }, [initial, id, connect, disconnect]);
 
   if (miss) {
     return (

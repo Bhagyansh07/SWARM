@@ -9,6 +9,7 @@ const GEN: Record<string, { tag: string; color: string }> = {
   evidence: { tag: 'EVIDENCE', color: 'var(--signal)' },
   thought: { tag: 'SIGNAL', color: 'var(--ok)' },
   synthesis: { tag: 'VERDICT', color: 'var(--signal)' },
+  rebuttal: { tag: 'REBUTTAL', color: 'var(--ok)' },
   narrative: { tag: 'NOTE', color: 'var(--faint)' },
 };
 

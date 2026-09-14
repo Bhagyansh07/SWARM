@@ -8,6 +8,7 @@ export type MessageType =
   | 'thought'
   | 'evidence'
   | 'critique'
+  | 'rebuttal'
   | 'synthesis'
   | 'narrative'
   | 'live_chunk'
@@ -31,6 +32,7 @@ export interface AgentStateDto {
   confidence: number;
   iterations: number;
   tokensUsed: number;
+  estCostUsd: number;
 }
 
 export interface AgentMessageDto {
