@@ -39,6 +39,19 @@ export function resolveProvider(): ProviderKind {
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Tracks which providers actually served turns since the last reset. The eval
+// rig uses this to refuse to publish a "measured" result that silently fell
+// back to the deterministic simulator (e.g. after a rate limit).
+const usage = new Set<ProviderKind>();
+
+export function resetProviderUsage(): void {
+  usage.clear();
+}
+
+export function providerUsage(): ProviderKind[] {
+  return [...usage];
+}
+
 export async function llmTurn(req: LlmTurnRequest): Promise<LlmTurnResponse> {
   const provider = resolveProvider();
   const providers: ProviderKind[] = provider === 'groq'
@@ -56,6 +69,7 @@ export async function llmTurn(req: LlmTurnRequest): Promise<LlmTurnResponse> {
         maxTokens: 750,
         onChunk: req.onChunk,
       });
+      usage.add(candidate);
       return { content, tokensUsed, provider: candidate };
     } catch (err) {
       logger.warn(`${candidate} request failed, trying next provider`, {
@@ -75,6 +89,7 @@ export async function llmTurn(req: LlmTurnRequest): Promise<LlmTurnResponse> {
 
   const result = await simulateStream(simCtx, req.runSeed, (c) => req.onChunk(c));
   await delay(120); // let the streamed chunks flush naturally
+  usage.add('simulation');
   return {
     content: result.thoughts.join('\n'),
     tokensUsed: result.tokensUsed,

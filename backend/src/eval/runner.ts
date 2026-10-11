@@ -6,7 +6,7 @@ import { logger } from '../lib/logger';
 import { groqAvailable, groqComplete, MODEL as GROQ_MODEL } from '../llm/groq';
 import { Orchestrator } from '../orchestrator/orchestrator';
 import { DocumentMissionStore, FileBackend, readDoc, writeDoc, type MissionRecord } from '../lib/store';
-import { currentModel, resolveProvider } from '../llm/provider';
+import { currentModel, providerUsage, resetProviderUsage, resolveProvider } from '../llm/provider';
 import {
   BASELINE_SYSTEM,
   EVAL_TASKS,
@@ -28,6 +28,7 @@ export interface EvalRunResult {
   model: string;
   judgeModel: string;
   provider: string;
+  providersUsed: string[];
   ranAt: string;
 }
 
@@ -167,6 +168,7 @@ export async function runEvalTask(task: EvalTask): Promise<EvalRunResult> {
     throw new Error('eval requires a live Groq key (GROQ_API_KEY)');
   }
 
+  resetProviderUsage();
   logger.info('eval task started', { task: task.id });
 
   const baseline = await runBaseline(task, () => undefined);
@@ -174,6 +176,11 @@ export async function runEvalTask(task: EvalTask): Promise<EvalRunResult> {
   const swarm = await runSwarm(task);
   await sleep(1200);
   const judge = await runJudge(task, baseline.content, swarm.content);
+
+  const used = providerUsage();
+  if (used.includes('simulation')) {
+    throw new Error('benchmark would have fallen back to simulation — use a live model');
+  }
 
   const result: EvalRunResult = {
     taskId: task.id,
@@ -186,6 +193,7 @@ export async function runEvalTask(task: EvalTask): Promise<EvalRunResult> {
     model,
     judgeModel: JUDGE_MODEL,
     provider,
+    providersUsed: used,
     ranAt: new Date().toISOString(),
   };
 
