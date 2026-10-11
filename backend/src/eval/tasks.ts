@@ -74,7 +74,7 @@ export const BASELINE_SYSTEM =
   'You are a senior consultant answering a brief directly. Respond with:\nVERDICT: one decisive sentence.\nKEY FINDINGS: 3-5 short bullet points.\nRISKS: 1-3 short bullet points.\nBe specific and concrete; do not hedge.';
 
 /** Judge model — deliberately different from the answer model to reduce self-preference. */
-export const JUDGE_MODEL = process.env.EVAL_JUDGE_MODEL ?? 'llama-3.1-70b-versatile';
+export const JUDGE_MODEL = process.env.EVAL_JUDGE_MODEL ?? 'qwen/qwen3.8-32b';
 
 export function judgePrompt(task: EvalTask, baseline: string, swarm: string): string {
   return [
