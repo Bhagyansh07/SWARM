@@ -22,7 +22,7 @@ Status: 🟢 ACTIVE — this is where I keep the test plan and targets.
 
 ## Test Data
 
-- Source: in-memory SQLite (`:memory:`) via Prisma; fixtures for agent roster + templates.
+- Source: the orchestrator runs against a temp-directory store; fixtures for agent roster + templates.
 - Rule: tests never hit live Groq — provider is injected/mocked.
 
 ## Manual QA Checklist (pre-demo)

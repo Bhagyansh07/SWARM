@@ -9,20 +9,20 @@ Status: 🟢 ACTIVE
 | Frontend | Next.js 14 (App Router) + React 18 + TypeScript | Production-grade, recruiter-approved, fastest way to a stunning SPA |
 | UI | Tailwind CSS + custom primitives + CSS animations (Archivo + IBM Plex Mono) | Instrument-panel design system: warm graphite + single signal accent, no component library |
 | Workflow canvas | React Flow (xyflow) | Industry-standard node-graph builder |
-| Charts | Recharts | Lightweight analytics |
-| Real-time | Socket.IO (client) | Live agent telemetry |
-| Backend | Node.js + Express + Socket.IO + TypeScript | Battle-tested real-time orchestration server |
-| ORM/DB | Prisma + SQLite (dev/zero-config) | Prisma migrations + zero external DB for instant demo |
+| Charts | Hand-rolled SVG | No chart dependency; flat schematics match the design system |
+| Real-time | Polling `GET /api/missions/:id` (~900 ms) | No socket server — deploys cleanly to serverless |
+| Backend | Node.js + Express + TypeScript | Single Express app, served as a long-lived process locally or a Vercel function in prod |
+| Persistence | JSON document `MissionStore`: filesystem (dev) / Vercel Blob (prod) | Zero DB to provision; one abstraction, two backends |
 | AI | Groq SDK (qwen/qwen3.8-27b) + pluggable providers | Fast, FREE inference |
-| Auth | Session-based (demo mode: instant guest) + optional NextAuth | Demo must be frictionless |
-| Hosting/Infra | Localhost via concurrently; Vercel-ready frontend + Railway-ready backend | Demo-first, deployable |
+| Auth | None (open demo) | Demo must be frictionless |
+| Hosting/Infra | Vercel (frontend + API function + Blob); localhost via concurrently | Two CLI/zero-config deploys, no servers to babysit |
 | CI/CD | GitHub Actions workflow (lint + typecheck + build) | Shows engineering discipline |
 
 ## Non-Functional Requirements
 
-- **Performance:** API response p95 < 500ms (excluding Groq stream); Socket.IO event < 50ms; UI interactive under 2s cold start.
-- **Scalability:** 1 launch = 1 orchestrator session; design for many concurrent missions (session map, not global state). Socket.IO handles 100+ sockets locally.
-- **Availability:** 99% target for demo sessions; crashed orchestrator auto-recovers mission state from SQLite on restart.
+- **Performance:** read endpoints p95 < 500ms; a mission completes inside a bounded budget (`MISSION_BUDGET_MS`, default 45s) with per-request LLM timeouts (15s).
+- **Scalability:** 1 launch = 1 in-memory orchestrator session; clients poll instead of holding a connection, so serverless instances stay stateless between requests.
+- **Availability:** production runs on Vercel with mission documents in Blob; a failed invocation never leaves a client stuck (poll surfaces `failed`).
 - **Offline support:** Simulation mode uses deterministic pseudo-random agent behavior — zero network needed.
 - **Accessibility:** WCAG AA for text contrast; keyboard-navigable panels; aria-labels on interactive controls.
 - **Internationalization:** English UI only (i18n-ready structure).
@@ -33,20 +33,19 @@ Status: 🟢 ACTIVE
 | Dependency | Purpose | License | Cost | Alternative if it fails |
 |---|---|---|---|---|
 | @groq/groq-sdk | LLM inference | Apache-2.0 | Free | Simulation engine (built-in fallback) |
-| socket.io / socket.io-client | Real-time events | MIT | Free | SSE or WebSocket polyfill |
 | reactflow (React Flow) | Node-graph workflow builder | MIT | Free | Hand-rolled SVG graph |
-| framer-motion | UI animations | MIT | Free | CSS transitions (not installed — CSS keyframes used) |
-| recharts | Charts | MIT | Free | Custom SVG charts |
+| @vercel/blob | Production mission store | Apache-2.0 | Free tier | Filesystem store (already the dev backend) |
+| @vercel/functions | `waitUntil` background handoff | Apache-2.0 | Free | Fire-and-forget promise |
 | next / react | Framework | MIT | Free | Vite SPA + API server |
 | express | HTTP API | MIT | Free | Fastify / plain node http |
-| prisma | ORM + migrations | Apache-2.0 | Free | better-sqlite3 raw SQL |
 | zod | Validation | MIT | Free | Manual validation |
 
 ## Environments
 
 - **Local/dev:** `npm run dev` at root → runs backend (:8080) + frontend (:3000) via concurrently.
 - **Staging:** GitHub Actions on `main` runs lint/typecheck/build (deploy target placeholder).
-- **Production:** Frontend → Vercel; Backend → Railway/Render. (Documented, not required for demo.)
+- **Production:** Vercel — a `swarm-web` Next.js project and a `swarm-api` function
+  project (`backend/`, built from `src/serverless.ts`) with a Vercel Blob store attached.
 
 ## Versioning & Release Strategy
 

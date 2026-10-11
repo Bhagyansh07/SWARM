@@ -2,6 +2,11 @@
 
 Status: 🟢 ACTIVE
 
+> **Storage note (v0.5.0):** there is no database. A mission is a single JSON
+> document held in memory by the orchestrator and flushed to a `MissionStore`
+> — a filesystem backend in dev, Vercel Blob in production. The entities below
+> describe the *shape of that document*, not tables/rows.
+
 ## Entity List
 
 | Entity | Description |
@@ -19,7 +24,7 @@ Status: 🟢 ACTIVE
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| id | string (cuid) | yes | primary key |
+| id | string (uuid) | yes | primary key |
 | name | string | yes | user-facing title |
 | template | string | yes | template key e.g. "deep_research" |
 | prompt | string | yes | user's objective |
@@ -40,7 +45,7 @@ Status: 🟢 ACTIVE
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| id | string (cuid) | yes | primary key |
+| id | string (uuid) | yes | primary key |
 | missionId | string | yes | FK → Mission |
 | role | string | yes | researcher/analyst/critic/synthesizer/orchestrator |
 | name | string | yes | display name |
@@ -60,7 +65,7 @@ Status: 🟢 ACTIVE
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| id | string (cuid) | yes | primary key |
+| id | string (uuid) | yes | primary key |
 | agentId | string | yes | FK → Agent |
 | type | string | yes | thought/evidence/critique/synthesis/narrative/live_chunk |
 | content | string | yes | |
@@ -74,7 +79,7 @@ Status: 🟢 ACTIVE
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| id | string (cuid) | yes | primary key |
+| id | string (uuid) | yes | primary key |
 | missionId | string | yes | FK |
 | label | string | yes | concept name |
 | kind | string | yes | concept/entity/fact/claim |
@@ -86,7 +91,7 @@ Status: 🟢 ACTIVE
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| id | string (cuid) | yes | primary key |
+| id | string (uuid) | yes | primary key |
 | missionId | string | yes | FK |
 | sourceId | string | yes | FK → KnowledgeNode |
 | targetId | string | yes | FK → KnowledgeNode |
@@ -97,7 +102,7 @@ Status: 🟢 ACTIVE
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| id | string (cuid) | yes | primary key |
+| id | string (uuid) | yes | primary key |
 | missionId | string | yes | FK (unique) |
 | summary | string | yes | markdown final synthesis |
 | keyFindings | string | no | JSON array of findings |
@@ -114,14 +119,29 @@ Mission (1) --- (1) MissionReport
 Agent (1) --- (many) AgentMessage
 ```
 
-## Migration Strategy
+## Storage Layout
 
-- Tool: Prisma Migrate (`prisma migrate dev`), schema at `backend/prisma/schema.prisma`.
-- Rule: never edit a migration that has run — always add a new one.
-- Where migrations live: `backend/prisma/migrations/`.
+- `missions/<id>.json` — the full mission document (agents, messages, nodes,
+  edges, report, analytics). Written throttled (≈ every 220 ms) during a run.
+- `index.json` — newest-first array of lightweight summaries (capped at 200);
+  feeds `GET /api/missions` without reading every document.
+- `shares.json` — map of share token → mission id.
+
+Backends (`backend/src/lib/store.ts`):
+
+| Backend | Selected when | Notes |
+|---|---|---|
+| `FileBackend` | no Blob token (default) | JSON files under `SWARM_DATA_DIR` (default `./.swarm-data`) |
+| `BlobBackend` | `BLOB_READ_WRITE_TOKEN` set, or `SWARM_STORE=blob` | Vercel Blob objects; public access, no edge cache |
+
+## Schema Evolution
+
+- No migrations. Documents are plain JSON; new optional fields degrade gracefully
+  on read (missing fields default in `toSummary` / the orchestration layer).
+- Rule: never remove a field consumers rely on without a fallback.
 
 ## Data Retention & Deletion
 
-- Missions kept indefinitely in local SQLite (demo).
-- Soft-delete unused: a `DELETE` route clears a mission + cascades.
-- No PII collected; optional reset by deleting `backend/prisma/dev.db`.
+- Missions kept indefinitely; `index.json` is capped at the 200 newest summaries.
+- `DELETE /api/missions/:id` removes the document and its index entry.
+- No PII collected; reset locally by deleting `backend/.swarm-data`.

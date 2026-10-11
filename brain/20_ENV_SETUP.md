@@ -6,7 +6,7 @@ Status: 🟢 ACTIVE
 
 - Node.js 20+ (recommended LTS 20.x or 22.x)
 - npm 10+
-- No database install needed (SQLite bundled with Prisma)
+- No database install needed — persistence is JSON documents on disk
 - Optional: Groq API key from https://console.groq.com (free)
 
 ## First-Time Setup
@@ -18,13 +18,10 @@ cd "RANDOM PROJECT/SWARM"
 # 2. Install all dependencies (root script installs backend + frontend)
 npm run setup
 
-# 3. Copy backends env template and add your Groq key (optional; sim runs without it)
+# 3. Copy backend env template and add your Groq key (optional; sim runs without it)
 copy backend/.env.example backend/.env
 
-# 4. Create database + seed roster/templates
-npm run db:setup
-
-# 5. Run the whole stack (frontend :3000 + backend :8080)
+# 4. Run the whole stack (frontend :3000 + backend :8080)
 npm run dev
 ```
 
@@ -37,11 +34,12 @@ CORS_ORIGIN=http://localhost:3000
 
 # AI Provider - Groq free tier (https://console.groq.com)
 GROQ_API_KEY=
-GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_MODEL=qwen/qwen3.8-27b
 AI_PROVIDER=auto
 
-# Database (SQLite via Prisma)
-DATABASE_URL=file:./dev.db
+# Mission store — JSON documents on disk (default). Set a Blob token to use Vercel Blob.
+SWARM_DATA_DIR=./.swarm-data
+# BLOB_READ_WRITE_TOKEN=
 ```
 
 ## Common Commands (root)
@@ -59,8 +57,8 @@ DATABASE_URL=file:./dev.db
 
 ## Troubleshooting
 
-- **Port 8080 in use:** change `PORT` in backend/.env, update `NEXT_PUBLIC_API_URL` in frontend/.env if custom.
+- **Port 8080 in use:** change `PORT` in backend/.env.
 - **No Groq key:** delete or leave `GROQ_API_KEY` empty → simulation mode badge shows; everything still works.
-- **Prisma issues:** delete `backend/prisma/dev.db`, rerun `npm run db:setup`.
-- **Frontend can't connect:** ensure backend is on :8080; check `frontend/.env.local` `NEXT_PUBLIC_API_URL`.
+- **Store issues:** the local store is just JSON — delete `backend/.swarm-data` to reset.
+- **Frontend can't connect:** the frontend proxies `/api/*` to `BACKEND_URL` (default `http://localhost:8080`). Ensure the backend is up; set `BACKEND_URL` at build time for a custom host.
 - **Windows EPERM node_modules:** run `npm cache clean --force` then retry; or `cmd /c rd /s node_modules` in the failing package.

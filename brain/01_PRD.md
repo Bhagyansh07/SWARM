@@ -53,7 +53,7 @@ Individual AI assistants are single-minded: ask one question, get one answer, do
 - Timeline: single high-intensity build session.
 - Team size / solo: solo.
 - Platform(s): Web (desktop-first, responsive to mobile).
-- Must integrate with: Groq API (primary), optional OpenAI/Anthropic adapters, Prisma, Socket.IO.
+- Must integrate with: Groq API (primary), optional OpenAI/Anthropic adapters, HTTP polling, Vercel Blob.
 
 ## Assumptions
 

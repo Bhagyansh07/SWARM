@@ -11,8 +11,8 @@ Status: 🟢 ACTIVE (ported to demo)
 ## Performance
 
 - [x] Mission launch → first agent message < 2s in simulation (sub-1s local).
-- [x] No unbounded growth — telemetry arrays capped; SQLite persistence intentional.
-- [x] Socket QoS: batches of messages flushed per event, not per token (throttle).
+- [x] No unbounded growth — telemetry arrays capped; store writes are throttled.
+- [x] Poll cadence: persistence throttled (~220ms) while the client polls at ~900ms.
 
 ## Security
 
@@ -22,13 +22,13 @@ Status: 🟢 ACTIVE (ported to demo)
 
 ## Data & Backups
 
-- [x] SQLite is the single file — copy to back up (`backend/prisma/dev.db`).
-- [~] Migration tested against local DB copy.
+- [x] Persistence is a folder/blob of JSON documents — back up by copying the store.
+- [x] Both store backends (filesystem + Vercel Blob) exercised.
 
 ## Monitoring & Observability
 
 - [x] Error banner + simulation badge on provider failure.
-- [x] Server console JSON logs mirrored to UI `log` feed.
+- [x] Server console JSON logs.
 
 ## Legal & Compliance
 

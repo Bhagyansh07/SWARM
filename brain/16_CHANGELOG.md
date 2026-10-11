@@ -2,6 +2,36 @@
 
 Status: 🟢 LIVE — Keep a Changelog style. Newest on top.
 
+## [0.5.0] - 2026-10-12
+
+### Changed
+- **Deployment is now serverless and permanent** (Vercel). Two projects:
+  `swarm-web` (Next.js) and `swarm-api` (Express function), with a Vercel Blob
+  store for mission documents.
+- Replaced Prisma + SQLite with a `MissionStore` over JSON documents —
+  filesystem in dev, Vercel Blob in production (`BLOB_READ_WRITE_TOKEN`).
+- Removed Socket.IO. Missions run in the background via `@vercel/functions`
+  `waitUntil`; the frontend follows them by polling `GET /api/missions/:id`.
+- Split the backend into `app.ts` (shared factory), `server.ts` (local) and
+  `serverless.ts` (Vercel entry). Backend now emits CommonJS so the function
+  loads.
+- Bounded runtime: per-request LLM timeouts (15s) and a mission budget
+  (`MISSION_BUDGET_MS`, default 45s).
+
+### Removed (frontend de-slop)
+- Deleted the WebGL scenes (`SwarmWorld`, `MissionScene`) and the light
+  pink/purple landing theme. Replaced with a flat SVG signal-bus schematic
+  (`MissionBus`, `HeroDeck`) on the existing dark instrument theme.
+- Dropped `three`, `@react-three/fiber`, `@react-three/drei`, `@types/three`,
+  `socket.io-client`, and `recharts`.
+- Made the topbar solid (removed the backdrop-blur glass) and removed
+  "constellation"/"orb control" copy.
+
+### Fixed
+- Shared/read-only missions now render their knowledge graph and message stream
+  from the initial payload instead of the (empty) live store.
+- Mission names use a stable `HH:MM` stamp instead of locale-formatted time.
+
 ## [0.4.1] - 2026-09-13
 
 ### Fixed

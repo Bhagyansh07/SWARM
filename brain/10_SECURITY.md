@@ -18,7 +18,7 @@ Status: 🟢 ACTIVE
 ## Input Validation
 
 - Validate all input server-side with zod: prompt (1–2000 chars), template key in roster, config.agent list subset of roster.
-- No raw SQL concatenation — Prisma parameterized queries only.
+- No SQL and no raw queries — the store writes opaque JSON documents keyed by server-generated mission id.
 - File uploads: none in v1.
 
 ## Data Privacy
@@ -38,7 +38,7 @@ Status: 🟢 ACTIVE
 
 ## Basic Threat Checklist
 
-- [x] Injection — Prisma parameterized queries; no eval.
+- [x] Injection — no SQL; mission ids are server UUIDs used only as object keys; no eval.
 - [x] XSS — React escapes output by default; LLM content rendered as text/markdown-sanitized (no raw HTML).
 - [x] CSRF — no cookies/state-changing GET; mutations are JSON fetch with CORS-restricted origin.
 - [x] Broken access control — single-user demo; DELETEs scoped by mission id.
