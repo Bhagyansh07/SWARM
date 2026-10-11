@@ -31,38 +31,48 @@ brief ──▶ researcher ──▶ critic ──▶ analyst ──▶ synthesi
 
 | Layer     | Tech |
 |-----------|------|
-| Backend   | Node 20+, Express, Socket.IO, Prisma + SQLite, Zod |
+| Backend   | Node 20+, Express, Zod, JSON document store (disk or Vercel Blob) |
 | AI        | Groq (`qwen/qwen3.8-27b`), deterministic simulation fallback |
 | Frontend  | Next.js 14 (App Router), Tailwind CSS, Zustand, React Flow-ready |
 | Design    | OKLCH warm-graphite palette, single signal accent, Archivo / IBM Plex Mono |
 
 ## Architecture
 
+Missions are long-running, so the API owns them: a launch request persists a
+"queued" mission document and hands the run to the background (`waitUntil` on
+Vercel). The orchestrator mutates an in-memory `MissionRecord` and flushes
+throttled JSON snapshots to the store every ~200 ms. The browser follows a
+mission by **polling** `GET /api/missions/:id` — no socket server, so it deploys
+cleanly to serverless.
+
 ```
 ┌──────────────────────────────┐        ┌──────────────────────────────┐
-│  frontend :3000 (Next.js)    │        │  backend :8080 (Express)     │
+│  frontend (Next.js)          │        │  backend (Express)           │
 │  - landing + launcher        │  REST  │  - /api/health, /missions    │
-│  - mission dashboard (live)  │◀──────▶│  - mission:launch (socket)   │
-│  - run library               │  Socket│  - orchestrator state machine│
-│  - Zustand socket store      │◀──────▶│  - agent runtime (4 lanes)   │
+│  - mission dashboard (poll)  │◀──────▶│  - orchestrator state machine│
+│  - run library               │        │  - agent runtime (4 lanes)   │
+│  - Zustand polling store     │        │  - background mission runner │
 └──────────────────────────────┘        └──────────────┬───────────────┘
-                                                       │ Prisma
-                                              ┌────────▼─────────┐
-                                              │  SQLite (dev.db) │
-                                              └──────────────────┘
-                                              LLM: Groq → auto-fallback → simulation
+                                                       │ MissionStore
+                                          ┌────────────▼─────────────┐
+                                          │  disk (dev) / Vercel Blob │
+                                          └───────────────────────────┘
+                                          LLM: Groq → auto-fallback → simulation
 ```
+
+The store is a tiny abstraction with two backends: a folder of JSON files for
+local development, and **Vercel Blob** in production (`BLOB_READ_WRITE_TOKEN`).
 
 ## Quick start
 
 ```bash
-npm install              # installs concurrently in root
-npm run db:setup         # prisma generate + db push + seed (agent roster)
+npm install              # installs root, backend and frontend
 npm run dev              # backend :8080 + frontend :3000
 ```
 
-Open http://localhost:3000. Pick a template, drop in a subject, hit **Deploy** — the
-mission launches over the socket and the dashboard streams the swarm's reasoning live.
+Open http://localhost:3000. Pick a template, drop in a subject, hit **Deploy** —
+the mission launches in the background and the dashboard polls its live
+reasoning stream, telemetry and knowledge graph.
 
 ### Using live Groq inference (optional)
 
@@ -72,11 +82,22 @@ Create `backend/.env` (or copy from `backend/.env.example`):
 GROQ_API_KEY=gsk_...
 GROQ_MODEL=qwen/qwen3.8-27b
 AI_PROVIDER=auto        # auto | groq | simulation
-DATABASE_URL=file:./dev.db
+# SWARM_DATA_DIR=./.swarm-data   # where local mission JSON documents live
 ```
 
 With no key (or `AI_PROVIDER=simulation`), SWARM runs the deterministic simulator —
 same protocol, same UI, zero cost.
+
+## Deploy
+
+Two Vercel projects in one repo:
+
+1. **API** — root directory `backend`, entry `src/serverless.ts` (`vercel.json`
+   builds it with `@vercel/node`). Attach a **Blob** store; Vercel injects
+   `BLOB_READ_WRITE_TOKEN`. Set `GROQ_API_KEY`, `GROQ_MODEL`, `AI_PROVIDER`,
+   `CORS_ORIGIN`.
+2. **Web** — root directory `frontend`. Set `BACKEND_URL` to the API project's
+   URL; Next rewrites `/api/*` to it, so the browser only ever talks to one origin.
 
 ## Scripts
 
@@ -84,7 +105,6 @@ same protocol, same UI, zero cost.
 |---------|--------------|
 | `npm run setup` | installs backend + frontend deps |
 | `npm run dev` | backend + frontend concurrently |
-| `npm run db:setup` | prisma generate, db push, seed roster |
 | `npm run build` | type-safe prod build of both packages |
 | `npm start` (backend) | serves compiled `dist/server.js` |
 | `npm run typecheck` | strict tsc on both packages |
@@ -93,30 +113,29 @@ same protocol, same UI, zero cost.
 ## API contract (summary)
 
 ```
-GET    /api/health          → provider, model, uptime
+GET    /api/health          → provider, model
 GET    /api/templates       → mission templates
 GET    /api/agents          → agent roster
 POST   /api/missions        → launch { name?, template, prompt, config?{agents?} }
 GET    /api/missions        → list (status, tokens, cost)
-GET    /api/missions/:id    → full detail + report + graph
+GET    /api/missions/:id    → full detail + report + graph (poll target)
 DELETE /api/missions/:id    → remove mission and its trace
+POST   /api/missions/:id/share → mint a share token
+GET    /api/shared/:token   → read-only snapshot of a shared mission
 ```
-
-Socket.IO (server → client): `mission:created`, `agent:update`, `agent:message`,
-`agent:chunk`, `graph:update`, `mission:complete`, `mission:failed`.
-Client → server: `mission:launch`.
 
 ## Design notes
 
-- **No gradients, no glassmorphism, no rounded-card soup.** UI is 1px-bordered panels,
-  a single phosphor-cyan accent, and hand-drawn 1px-stroke SVG glyphs.
-- Motion is limited to subtle fades and a blinking caret, and respects
-  `prefers-reduced-motion`.
-- Copy is honest — the landing shows real runtime telemetry (provider/model), never
-  invented metrics.
+- **No gradients, no glassmorphism, no rounded-card soup, no WebGL.** UI is
+  1px-bordered panels, one signal accent, and flat SVG schematics.
+- Motion is limited to subtle fades, a blinking caret and a dashes-along-the-bus
+  tick, and respects `prefers-reduced-motion`.
+- Copy is honest — the landing shows real runtime telemetry (provider/model),
+  never invented metrics.
 
 ## Timeline
 
 - **0.1.0** — scaffold + brain spec set
 - **0.2.0** — backend complete, live Groq mission verified end-to-end
-- **0.3.0** — frontend complete: launcher, live dashboard, run library; socket pipeline E2E verified
+- **0.3.0** — frontend complete: launcher, live dashboard, run library
+- **0.4.0** — serverless port: polling API, Blob-backed mission store, no 3D

@@ -1,18 +1,14 @@
 import { Router, type Request, type Response } from 'express';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import prisma from '../lib/prisma';
 import { logger } from '../lib/logger';
-import { Orchestrator, type OrchestratorEmit } from '../orchestrator/orchestrator';
+import { Orchestrator } from '../orchestrator/orchestrator';
 import { getTemplate, resolveConfiguration, validateAgentOrder } from '../orchestrator/templates';
-import { AGENT_ROSTER, TEMPLATES, type AgentRole, type LaunchMissionInput, type MissionDetailDto } from '../types';
+import { AGENT_ROSTER, TEMPLATES, type LaunchMissionInput, type MissionDetailDto } from '../types';
 import { resolveProvider, currentModel } from '../llm/provider';
-import { v4 as uuid } from 'uuid';
 import { missionLaunchRateLimit, createRateLimiter } from '../lib/rate-limit';
-import { estimateTokenCost } from '../lib/pricing';
-
-export interface EmitFn {
-  (event: string, payload: Record<string, unknown>): void;
-}
+import { runInBackground } from '../lib/background';
+import { getStore, type MissionRecord } from '../lib/store';
 
 const launchSchema = z.object({
   name: z.string().max(80).optional(),
@@ -23,87 +19,36 @@ const launchSchema = z.object({
 
 const launchLimiter = createRateLimiter(missionLaunchRateLimit);
 
-function toDetailDto(data: {
-  mission: NonNullable<Awaited<ReturnType<typeof loadMissionCore>>>;
-  agents: Array<{ id: string; role: string; name: string; avatar: string; status: string; phase: string | null; confidence: number; iterations: number; tokensUsed: number }>;
-  messages: Array<{ id: string; agentId: string; type: string; content: string; seq: number; meta: string | null; createdAt: Date } & { agent: { role: string } }>;
-  nodes: Array<{ id: string; label: string; kind: string; group: number; weight: number }>;
-  edges: Array<{ id: string; sourceId: string; targetId: string; label: string | null }>;
-  report: { summary: string; keyFindings: string | null; risks: string | null; verdict: string | null } | null;
-}): MissionDetailDto {
-  const m = data.mission;
-  const completedAt = m.completedAt;
-  const analytics =
-    m.status === 'complete' && completedAt
-      ? {
-          startedAt: m.startedAt.toISOString(),
-          completedAt: completedAt.toISOString(),
-          durationMs: new Date(completedAt).getTime() - new Date(m.startedAt).getTime(),
-          totalTokens: m.totalTokens,
-          estCostUsd: m.estCostUsd,
-          messages: data.messages.length,
-          graphNodes: data.nodes.length,
-          graphEdges: data.edges.length,
-        }
-      : null;
-
+function toDetailDto(record: MissionRecord): MissionDetailDto & { chunks: Record<string, string>; error: string | null } {
   return {
-    id: m.id,
-    name: m.name,
-    template: m.template,
-    prompt: m.prompt,
-    status: m.status,
-    provider: m.provider,
-    model: m.model,
-    startedAt: m.startedAt.toISOString(),
-    completedAt: completedAt ? completedAt.toISOString() : null,
-    totalTokens: m.totalTokens,
-    estCostUsd: m.estCostUsd,
-    agents: data.agents.map((a) => ({
-      id: a.id,
-      role: a.role as AgentRole,
-      name: a.name,
-      avatar: a.avatar,
-      status: a.status as 'idle' | 'thinking' | 'working' | 'done' | 'failed',
-      phase: a.phase ?? 'idle',
-      confidence: a.confidence,
-      iterations: a.iterations,
-      tokensUsed: a.tokensUsed,
-      estCostUsd: estimateTokenCost(a.tokensUsed),
-    })),
-    messages: data.messages.map((msg) => ({
-      id: msg.id,
-      agentId: msg.agentId,
-      role: msg.agent.role as AgentRole,
-      type: msg.type as MissionDetailDto['messages'][number]['type'],
-      content: msg.content,
-      seq: msg.seq,
-      meta: msg.meta ?? undefined,
-      createdAt: msg.createdAt.toISOString(),
-    })),
-    nodes: data.nodes.map((n) => ({ id: n.id, label: n.label, kind: n.kind as 'concept' | 'entity' | 'fact' | 'claim', group: n.group, weight: n.weight })),
-    edges: data.edges.map((e) => ({ id: e.id, sourceId: e.sourceId, targetId: e.targetId, label: e.label ?? undefined })),
-    report: data.report
-      ? {
-          summary: data.report.summary,
-          keyFindings: JSON.parse(data.report.keyFindings ?? '[]'),
-          risks: JSON.parse(data.report.risks ?? '[]'),
-          verdict: data.report.verdict ?? '',
-        }
-      : null,
-    analytics,
+    id: record.id,
+    name: record.name,
+    template: record.template,
+    prompt: record.prompt,
+    status: record.status,
+    provider: record.provider,
+    model: record.model,
+    startedAt: record.startedAt,
+    completedAt: record.completedAt,
+    totalTokens: record.totalTokens,
+    estCostUsd: record.estCostUsd,
+    agents: record.agents,
+    messages: record.messages,
+    nodes: record.nodes,
+    edges: record.edges,
+    chunks: record.chunks ?? {},
+    report: record.report,
+    analytics: record.analytics,
+    error: record.error ?? null,
   };
 }
 
-async function loadMissionCore(id: string) {
-  return prisma.mission.findUnique({ where: { id } });
-}
-
-export function createMissionRouter(emit: EmitFn): Router {
+export function createMissionRouter(): Router {
   const router = Router();
+  const store = getStore();
 
   router.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', provider: resolveProvider(), model: currentModel(), uptime: process.uptime() });
+    res.json({ status: 'ok', provider: resolveProvider(), model: currentModel() });
   });
 
   router.get('/templates', (_req: Request, res: Response) => {
@@ -118,25 +63,7 @@ export function createMissionRouter(emit: EmitFn): Router {
     try {
       const raw = Number(req.query.limit);
       const limit = Number.isFinite(raw) ? Math.min(100, Math.max(1, Math.floor(raw))) : 50;
-      const missions = await prisma.mission.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        select: {
-          id: true,
-          name: true,
-          template: true,
-          prompt: true,
-          status: true,
-          provider: true,
-          model: true,
-          startedAt: true,
-          completedAt: true,
-          totalTokens: true,
-          estCostUsd: true,
-          createdAt: true,
-        },
-      });
-      res.json({ data: missions });
+      res.json({ data: await store.list(limit) });
     } catch (err) {
       logger.error('list missions failed', { error: err instanceof Error ? err.message : String(err) });
       res.status(500).json({ error: { code: 'INTERNAL', message: 'Failed to load missions.', details: {} } });
@@ -145,7 +72,13 @@ export function createMissionRouter(emit: EmitFn): Router {
 
   router.post('/missions', async (req: Request, res: Response) => {
     if (launchLimiter.limited(req.ip ?? 'unknown')) {
-      res.status(429).json({ error: { code: 'RATE_LIMITED', message: `Too many launches. Chill for ${Math.ceil(missionLaunchRateLimit.windowMs / 1000)}s.`, details: {} } });
+      res.status(429).json({
+        error: {
+          code: 'RATE_LIMITED',
+          message: `Too many launches. Chill for ${Math.ceil(missionLaunchRateLimit.windowMs / 1000)}s.`,
+          details: {},
+        },
+      });
       return;
     }
 
@@ -157,7 +90,7 @@ export function createMissionRouter(emit: EmitFn): Router {
 
     const input = parsed.data as LaunchMissionInput;
     try {
-      getTemplate(input.template); // throws if unknown
+      getTemplate(input.template);
     } catch {
       res.status(400).json({ error: { code: 'UNKNOWN_TEMPLATE', message: `Unknown template "${input.template}".`, details: {} } });
       return;
@@ -176,44 +109,41 @@ export function createMissionRouter(emit: EmitFn): Router {
     }
 
     try {
-      const mission = await prisma.mission.create({
-        data: {
-          name: input.name?.trim() || `${getTemplate(input.template).title} · ${new Date().toLocaleTimeString()}`,
-          template: input.template,
-          prompt: input.prompt.trim(),
-          status: 'queued',
-          provider: resolveProvider(),
-          model: currentModel(),
-        },
-      });
-
-      const orchestratorEmit: OrchestratorEmit = {
-        agentUpdate: (payload) => emit('agent:update', payload),
-        agentMessage: (payload) => emit('agent:message', payload),
-        agentChunk: (payload) => emit('agent:chunk', payload),
-        graphUpdate: (payload) => emit('graph:update', payload),
-        missionComplete: (payload) => emit('mission:complete', payload),
-        missionFailed: (payload) => emit('mission:failed', payload),
-        log: (level, message, meta) => emit('log', { level, message, ts: new Date().toISOString(), ...meta }),
+      const now = new Date();
+      const stamp = now.toISOString().slice(11, 16);
+      const record: MissionRecord = {
+        id: randomUUID(),
+        name: input.name?.trim() || `${getTemplate(input.template).title} · ${stamp}`,
+        template: input.template,
+        prompt: input.prompt.trim(),
+        order,
+        status: 'queued',
+        provider: resolveProvider(),
+        model: currentModel(),
+        startedAt: now.toISOString(),
+        completedAt: null,
+        createdAt: now.toISOString(),
+        totalTokens: 0,
+        estCostUsd: 0,
+        shareToken: null,
+        error: null,
+        agents: [],
+        messages: [],
+        nodes: [],
+        edges: [],
+        chunks: {},
+        report: null,
+        analytics: null,
       };
 
-      const orchestrator = new Orchestrator({
-        missionId: mission.id,
-        name: mission.name,
-        templateKey: input.template,
-        prompt: mission.prompt,
-        order,
-        runSeed: Date.now() % 100000,
-        emit: orchestratorEmit,
-        providerName: resolveProvider(),
-      });
-
-      emit('mission:created', { missionId: mission.id, name: mission.name, startedAt: mission.startedAt.toISOString() });
-
-      void orchestrator.start();
+      // Persist the queued mission *before* responding so the client can poll it
+      // immediately, then hand the run to the background.
+      await store.create(record);
+      const orchestrator = new Orchestrator({ record, store, runSeed: Date.now() % 100000 });
+      runInBackground(orchestrator.start(), `mission:${record.id}`);
       launchLimiter.record(req.ip ?? 'unknown');
 
-      res.status(201).json({ data: { id: mission.id, status: 'running' } });
+      res.status(201).json({ data: { id: record.id, status: 'queued' } });
     } catch (err) {
       logger.error('launch mission failed', { error: err instanceof Error ? err.message : String(err) });
       res.status(500).json({ error: { code: 'INTERNAL', message: 'Failed to launch mission.', details: {} } });
@@ -222,13 +152,17 @@ export function createMissionRouter(emit: EmitFn): Router {
 
   router.post('/missions/:id/share', async (req: Request, res: Response) => {
     try {
-      const mission = await loadMissionCore(req.params.id);
-      if (!mission) {
+      const record = await store.get(req.params.id);
+      if (!record) {
         res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Mission not found.', details: {} } });
         return;
       }
-      const token = mission.shareToken ?? uuid();
-      if (!mission.shareToken) await prisma.mission.update({ where: { id: mission.id }, data: { shareToken: token } });
+      const token = record.shareToken ?? randomUUID();
+      if (!record.shareToken) {
+        record.shareToken = token;
+        await store.setShareToken(record.id, token);
+        await store.save(record);
+      }
       res.json({ data: { token } });
     } catch (err) {
       logger.error('share mission failed', { error: err instanceof Error ? err.message : String(err) });
@@ -238,19 +172,12 @@ export function createMissionRouter(emit: EmitFn): Router {
 
   router.get('/shared/:token', async (req: Request, res: Response) => {
     try {
-      const mission = await prisma.mission.findUnique({ where: { shareToken: req.params.token } });
-      if (!mission) {
+      const record = await store.findByShareToken(req.params.token);
+      if (!record) {
         res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Shared mission not found.', details: {} } });
         return;
       }
-      const [agents, messages, nodes, edges, report] = await Promise.all([
-        prisma.agent.findMany({ where: { missionId: mission.id }, orderBy: { startedAt: 'asc' } }),
-        prisma.agentMessage.findMany({ where: { agent: { missionId: mission.id } }, orderBy: { seq: 'asc' }, include: { agent: { select: { role: true } } } }),
-        prisma.knowledgeNode.findMany({ where: { missionId: mission.id } }),
-        prisma.knowledgeEdge.findMany({ where: { missionId: mission.id } }),
-        prisma.missionReport.findUnique({ where: { missionId: mission.id } }),
-      ]);
-      res.json({ data: toDetailDto({ mission, agents, messages, nodes, edges, report }) });
+      res.json({ data: toDetailDto(record) });
     } catch (err) {
       logger.error('get shared mission failed', { error: err instanceof Error ? err.message : String(err) });
       res.status(500).json({ error: { code: 'INTERNAL', message: 'Failed to load shared mission.', details: {} } });
@@ -259,24 +186,12 @@ export function createMissionRouter(emit: EmitFn): Router {
 
   router.get('/missions/:id', async (req: Request, res: Response) => {
     try {
-      const id = req.params.id;
-      const mission = await loadMissionCore(id);
-      if (!mission) {
+      const record = await store.get(req.params.id);
+      if (!record) {
         res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Mission not found.', details: {} } });
         return;
       }
-      const [agents, messages, nodes, edges, report] = await Promise.all([
-        prisma.agent.findMany({ where: { missionId: id }, orderBy: { startedAt: 'asc' } }),
-        prisma.agentMessage.findMany({
-          where: { agent: { missionId: id } },
-          orderBy: { seq: 'asc' },
-          include: { agent: { select: { role: true } } },
-        }),
-        prisma.knowledgeNode.findMany({ where: { missionId: id } }),
-        prisma.knowledgeEdge.findMany({ where: { missionId: id } }),
-        prisma.missionReport.findUnique({ where: { missionId: id } }),
-      ]);
-      res.json({ data: toDetailDto({ mission, agents, messages, nodes, edges, report }) });
+      res.json({ data: toDetailDto(record) });
     } catch (err) {
       logger.error('get mission failed', { error: err instanceof Error ? err.message : String(err) });
       res.status(500).json({ error: { code: 'INTERNAL', message: 'Failed to load mission.', details: {} } });
@@ -285,13 +200,12 @@ export function createMissionRouter(emit: EmitFn): Router {
 
   router.delete('/missions/:id', async (req: Request, res: Response) => {
     try {
-      const id = req.params.id;
-      const existing = await loadMissionCore(id);
-      if (!existing) {
+      const record = await store.get(req.params.id);
+      if (!record) {
         res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Mission not found.', details: {} } });
         return;
       }
-      await prisma.mission.delete({ where: { id } });
+      await store.remove(req.params.id);
       res.json({ data: { deleted: true } });
     } catch (err) {
       logger.error('delete mission failed', { error: err instanceof Error ? err.message : String(err) });

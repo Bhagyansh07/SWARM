@@ -10,8 +10,6 @@ jobs:
   backend:
     name: Backend — typecheck, test, build
     runs-on: ubuntu-latest
-    env:
-      DATABASE_URL: file:./dev.db
     defaults:
       run:
         working-directory: backend
@@ -23,7 +21,6 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
-      - run: npm run db:setup
       - run: npm run typecheck
       - run: npm test
       - run: npm run build

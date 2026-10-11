@@ -1,6 +1,6 @@
-import prisma from '../lib/prisma';
+import { randomUUID } from 'node:crypto';
 import { logger } from '../lib/logger';
-import { AGENT_ROSTER, type AgentRole } from '../types';
+import { AGENT_ROSTER, type AgentRole, type AgentStatus } from '../types';
 import { ResearcherAgent } from '../agents/researcher';
 import { AnalystAgent } from '../agents/analyst';
 import { CriticAgent } from '../agents/critic';
@@ -8,87 +8,93 @@ import { SynthesizerAgent } from '../agents/synthesizer';
 import { Agent, type AgentRuntime } from '../agents/base';
 import { estimateTokenCost } from '../lib/pricing';
 import { llmTurn } from '../llm/provider';
-
-export interface OrchestratorEmit {
-  agentUpdate: (payload: Record<string, unknown>) => void;
-  agentMessage: (payload: Record<string, unknown>) => void;
-  agentChunk: (payload: Record<string, unknown>) => void;
-  graphUpdate: (payload: Record<string, unknown>) => void;
-  missionComplete: (payload: Record<string, unknown>) => void;
-  missionFailed: (payload: Record<string, unknown>) => void;
-  log: (level: 'info' | 'warn' | 'error', message: string, meta?: Record<string, unknown>) => void;
-}
+import type { MissionRecord, MissionStore } from '../lib/store';
 
 function kindToType(kind: string): 'concept' | 'entity' | 'fact' | 'claim' {
   if (kind === 'entity' || kind === 'fact' || kind === 'claim') return kind;
   return 'concept';
 }
 
-export class Orchestrator {
-  private missionId: string;
-  private name: string;
-  private templateKey: string;
-  private prompt: string;
-  private order: string[];
-  private runSeed: number;
-  private emit: OrchestratorEmit;
-  private sharedFindings: string[] = [];
-  private running = false;
-  private providerName = 'simulation';
-  private agentNamesById = new Map<string, { role: AgentRole; name: string }>();
-  private totalTokens = 0;
-  private startedAt = new Date();
-  private pendingWrites: Promise<unknown>[] = [];
+const FINDING_TYPES = new Set(['evidence', 'thought', 'finding', 'insight', 'critique', 'synthesis']);
+const MIN_SAVE_INTERVAL_MS = 220;
 
-  constructor(args: {
-    missionId: string;
-    name: string;
-    templateKey: string;
-    prompt: string;
-    order: string[];
-    runSeed: number;
-    emit: OrchestratorEmit;
-    providerName: string;
-  }) {
-    this.missionId = args.missionId;
-    this.name = args.name;
-    this.templateKey = args.templateKey;
-    this.prompt = args.prompt;
-    this.order = args.order;
+// Serverless functions are capped in wall-clock time. Keep the whole run well
+// inside that cap so a mission always converges and persists.
+const MISSION_BUDGET_MS = Number(process.env.MISSION_BUDGET_MS ?? 45000);
+
+/**
+ * Drives a mission: each executable agent takes a turn, appending messages,
+ * telemetry and knowledge-graph nodes to the in-memory {@link MissionRecord}. The
+ * record is flushed to the {@link MissionStore} on a throttle so pollers see the
+ * mission evolve in near-real time.
+ */
+export class Orchestrator {
+  private readonly record: MissionRecord;
+  private readonly store: MissionStore;
+  private readonly runSeed: number;
+  private readonly startedAtMs: number;
+  private sharedFindings: string[] = [];
+  private readonly nodeIdByLabel = new Map<string, string>();
+  private readonly edgeKeys = new Set<string>();
+  private seq = 0;
+  private nodeCounter = 0;
+  private running = false;
+
+  // Persistence throttle state.
+  private saving = false;
+  private dirty = false;
+  private lastSaveAt = 0;
+  private trailing: ReturnType<typeof setTimeout> | null = null;
+
+  constructor(args: { record: MissionRecord; store: MissionStore; runSeed: number }) {
+    this.record = args.record;
+    this.store = args.store;
     this.runSeed = args.runSeed;
-    this.emit = args.emit;
-    this.providerName = args.providerName;
+    this.startedAtMs = Date.parse(args.record.startedAt) || Date.now();
+    this.seq = this.record.messages.reduce((max, m) => Math.max(max, m.seq), 0);
+    for (const node of this.record.nodes) this.nodeIdByLabel.set(node.label, node.id);
+    for (const edge of this.record.edges) this.edgeKeys.add(`${edge.sourceId}|${edge.targetId}|${edge.label ?? ''}`);
   }
 
   async start(): Promise<void> {
     if (this.running) return;
     this.running = true;
 
-    try {
-      const mission = await prisma.mission.update({
-        where: { id: this.missionId },
-        data: { status: 'running', provider: this.providerName, startedAt: this.startedAt },
-      });
-      logger.info('mission started', { id: mission.id, name: this.name, order: this.order });
-      this.emit.log('info', 'mission started', { id: mission.id, name: this.name, order: this.order });
+    this.record.status = 'running';
+    this.record.startedAt = new Date(this.startedAtMs).toISOString();
+    await this.persist(true);
+    logger.info('mission started', { id: this.record.id, name: this.record.name, order: this.record.order });
 
-      for (let index = 0; index < this.order.length; index += 1) {
-        const role = this.order[index];
-        if (role === 'orchestrator' || role === 'researcher' || role === 'analyst' || role === 'critic' || role === 'synthesizer') {
-          const confidence = await this.runAgent(role);
-          if (role === 'critic' && confidence < 0.4) {
-            const rebuttalRole = [...this.order.slice(0, index)].reverse().find((candidate) => candidate === 'researcher' || candidate === 'analyst');
-            if (rebuttalRole) await this.runRebuttal(rebuttalRole);
-          }
+    try {
+      const deadline = Date.now() + MISSION_BUDGET_MS;
+      for (let index = 0; index < this.record.order.length; index += 1) {
+        const role = this.record.order[index] as AgentRole;
+        if (!(role in AGENT_ROSTER) || role === 'orchestrator') continue;
+        if (Date.now() >= deadline) {
+          logger.warn('mission budget reached, converging early', { id: this.record.id, remaining: this.record.order.slice(index) });
+          break;
+        }
+
+        const confidence = await this.runAgent(role);
+        if (role === 'critic' && confidence < 0.4) {
+          const rebuttalRole = [...this.record.order.slice(0, index)]
+            .reverse()
+            .find((candidate) => candidate === 'researcher' || candidate === 'analyst') as
+            | 'researcher'
+            | 'analyst'
+            | undefined;
+          if (rebuttalRole) await this.runRebuttal(rebuttalRole);
         }
       }
 
       await this.complete();
     } catch (err) {
-      logger.error('mission failed', { id: this.missionId, error: err instanceof Error ? err.message : String(err) });
-      await prisma.mission.update({ where: { id: this.missionId }, data: { status: 'failed' } });
-      this.emit.missionFailed({ missionId: this.missionId, error: err instanceof Error ? err.message : String(err) });
-      this.emit.log('error', 'mission failed', { id: this.missionId, error: err instanceof Error ? err.message : String(err) });
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error('mission failed', { id: this.record.id, error: message });
+      this.record.status = 'failed';
+      this.record.error = message;
+      this.record.completedAt = new Date().toISOString();
+      await this.persist(true);
     } finally {
       this.running = false;
     }
@@ -96,139 +102,150 @@ export class Orchestrator {
 
   private async runAgent(role: AgentRole): Promise<number> {
     const meta = AGENT_ROSTER[role];
-    const dbAgent = await prisma.agent.create({
-      data: {
-        missionId: this.missionId,
-        role,
-        name: meta.name,
-        avatar: meta.avatar,
-        status: 'thinking',
-        phase: 'initialize',
-        startedAt: new Date(),
-      },
-    });
-    this.agentNamesById.set(dbAgent.id, { role, name: meta.name });
-
-    let agentTokens = 0;
-    const patchTs = (patch: { status: string; phase: string; confidence: number; iterations: number; tokensUsed: number }) => {
-      agentTokens += Math.max(0, patch.tokensUsed);
-      this.totalTokens += Math.max(0, patch.tokensUsed);
-      this.pendingWrites.push(
-        prisma.agent.update({
-          where: { id: dbAgent.id },
-          data: {
-            status: patch.status,
-            phase: patch.phase,
-            confidence: patch.confidence,
-            iterations: patch.iterations,
-            tokensUsed: agentTokens,
-          },
-        }).catch((err) => logger.warn('agent update failed', { error: err instanceof Error ? err.message : String(err) })),
-      );
-      this.emit.agentUpdate({
-        missionId: this.missionId,
-        agent: {
-          id: dbAgent.id,
-          role,
-          name: meta.name,
-          avatar: meta.avatar,
-          status: patch.status,
-          phase: patch.phase,
-          confidence: patch.confidence,
-          iterations: patch.iterations,
-          tokensUsed: agentTokens,
-          estCostUsd: estimateTokenCost(agentTokens),
-        },
-      });
+    const agent = {
+      id: randomUUID(),
+      role,
+      name: meta.name,
+      avatar: meta.avatar,
+      status: 'thinking' as AgentStatus,
+      phase: 'initialize',
+      confidence: 0,
+      iterations: 1,
+      tokensUsed: 0,
+      estCostUsd: 0,
     };
-
-    let seq = await prisma.agentMessage.count({ where: { agent: { missionId: this.missionId } } });
-
-    const pushMessage = (type: string, content: string, metaStr?: string) => {
-      seq += 1;
-      if (content.trim().length > 16 && (type === 'evidence' || type === 'thought' || type === 'finding' || type === 'insight' || type === 'critique' || type === 'synthesis')) {
-        this.sharedFindings.push(content.trim());
-      }
-      if (this.sharedFindings.length > 14) this.sharedFindings.splice(0, this.sharedFindings.length - 14);
-      this.pendingWrites.push(
-        prisma.agentMessage
-          .create({
-            data: { agentId: dbAgent.id, seq, type, content, meta: metaStr },
-          })
-          .catch((err) => logger.warn('message persist failed', { error: err instanceof Error ? err.message : String(err) })),
-      );
-      this.emit.agentMessage({
-        missionId: this.missionId,
-        message: { id: `${dbAgent.id}-${seq}`, agentId: dbAgent.id, role, type, content, seq },
-      });
-    };
-
-    const emitChunk = (chunk: string) => {
-      this.emit.agentChunk({ missionId: this.missionId, agentId: dbAgent.id, role, chunk });
-    };
-
-    const emitGraph = (
-      nodes: Array<{ label: string; kind: string; group: number; weight: number }>,
-      edges: Array<{ sourceLabel: string; targetLabel: string; label?: string }>,
-    ) => {
-      this.pendingWrites.push(
-        this.persistAndEmitGraph(nodes, edges).catch((err) =>
-          logger.warn('graph persist failed', { error: err instanceof Error ? err.message : String(err) }),
-        ),
-      );
-    };
+    this.record.agents.push(agent);
+    await this.persist(true);
 
     const runtime: AgentRuntime = {
-      missionId: this.missionId,
-      missionName: this.name,
-      prompt: this.prompt,
-      template: this.templateKey,
+      missionId: this.record.id,
+      missionName: this.record.name,
+      prompt: this.record.prompt,
+      template: this.record.template,
       getSharedFindings: () => [...this.sharedFindings],
       runSeed: this.runSeed,
-      onUpdate: patchTs,
-      onMessage: pushMessage,
-      onChunk: emitChunk,
-      onGraph: emitGraph,
+      onUpdate: (patch) => {
+        agent.status = patch.status as AgentStatus;
+        agent.phase = patch.phase;
+        agent.confidence = patch.confidence;
+        agent.iterations = patch.iterations;
+        const delta = Math.max(0, patch.tokensUsed);
+        agent.tokensUsed += delta;
+        agent.estCostUsd = estimateTokenCost(agent.tokensUsed);
+        this.record.totalTokens += delta;
+        void this.persist();
+      },
+      onMessage: (type, content, metaStr) => this.pushMessage(agent.id, role, type, content, metaStr),
+      onChunk: (chunk) => {
+        const current = this.record.chunks[agent.id] ?? '';
+        this.record.chunks[agent.id] = (current + chunk).slice(-2400);
+        void this.persist();
+      },
+      onGraph: (nodes, edges) => {
+        this.mergeGraph(nodes, edges);
+        void this.persist(true);
+      },
     };
 
-    const agent = this.buildAgent(role, runtime);
-    await agent.run();
+    const impl = this.buildAgent(role, runtime);
+    await impl.run();
 
-    const flush = this.pendingWrites.splice(0);
-    await Promise.all(flush);
-
-    await prisma.agent.update({
-      where: { id: dbAgent.id },
-      data: { status: 'done', finishedAt: new Date() },
-    });
-    return Number((await prisma.agent.findUnique({ where: { id: dbAgent.id }, select: { confidence: true } }))?.confidence ?? 0);
+    agent.status = 'done';
+    await this.persist(true);
+    return agent.confidence;
   }
 
   private async runRebuttal(role: 'researcher' | 'analyst'): Promise<void> {
     const meta = AGENT_ROSTER[role];
-    const dbAgent = await prisma.agent.create({
-      data: { missionId: this.missionId, role, name: meta.name, avatar: meta.avatar, status: 'working', phase: 'rebuttal', startedAt: new Date() },
-    });
-    let seq = await prisma.agentMessage.count({ where: { agent: { missionId: this.missionId } } });
-    const prior = this.sharedFindings;
+    const agent = {
+      id: randomUUID(),
+      role,
+      name: meta.name,
+      avatar: meta.avatar,
+      status: 'working' as AgentStatus,
+      phase: 'rebuttal',
+      confidence: 0.55,
+      iterations: 1,
+      tokensUsed: 0,
+      estCostUsd: 0,
+    };
+    this.record.agents.push(agent);
+    await this.persist(true);
+
     const result = await llmTurn({
       role,
-      prompt: `Mission objective: ${this.prompt}\n\nThe critic has challenged the current direction. As the ${role.toUpperCase()}, write a concise REBUTTAL: answer the strongest criticism with evidence, revise any weak claim, and state what remains uncertain. Label it as a rebuttal.`,
+      prompt: `Mission objective: ${this.record.prompt}\n\nThe critic has challenged the current direction. As the ${role.toUpperCase()}, write a concise REBUTTAL: answer the strongest criticism with evidence, revise any weak claim, and state what remains uncertain. Label it as a rebuttal.`,
       name: meta.name,
-      missionName: this.name,
-      template: this.templateKey,
-      previousFindings: prior,
+      missionName: this.record.name,
+      template: this.record.template,
+      previousFindings: [...this.sharedFindings],
       systemPrompt: `You are ${meta.name}, providing a focused rebuttal after an adversarial review. Be specific and honest.`,
       runSeed: this.runSeed + 1,
-      onChunk: (chunk) => this.emit.agentChunk({ missionId: this.missionId, agentId: dbAgent.id, role, chunk }),
+      onChunk: (chunk) => {
+        const current = this.record.chunks[agent.id] ?? '';
+        this.record.chunks[agent.id] = (current + chunk).slice(-2400);
+        void this.persist();
+      },
     });
+
     const content = result.content.trim() || 'Rebuttal produced no additional evidence.';
-    seq += 1;
-    await prisma.agentMessage.create({ data: { agentId: dbAgent.id, seq, type: 'rebuttal', content } });
-    this.sharedFindings.push(content);
-    this.emit.agentMessage({ missionId: this.missionId, message: { id: `${dbAgent.id}-${seq}`, agentId: dbAgent.id, role, type: 'rebuttal', content, seq } });
-    this.totalTokens += result.tokensUsed;
-    await prisma.agent.update({ where: { id: dbAgent.id }, data: { status: 'done', phase: 'rebuttal:complete', confidence: 0.55, iterations: 1, tokensUsed: result.tokensUsed, finishedAt: new Date() } });
+    this.pushMessage(agent.id, role, 'rebuttal', content);
+    agent.tokensUsed = result.tokensUsed;
+    agent.estCostUsd = estimateTokenCost(result.tokensUsed);
+    this.record.totalTokens += result.tokensUsed;
+    agent.status = 'done';
+    agent.phase = 'rebuttal:complete';
+    await this.persist(true);
+  }
+
+  private pushMessage(agentId: string, role: AgentRole, type: string, content: string, metaStr?: string): void {
+    this.seq += 1;
+    const trimmed = content.trim();
+    if (trimmed.length > 16 && FINDING_TYPES.has(type)) {
+      this.sharedFindings.push(trimmed);
+      if (this.sharedFindings.length > 14) this.sharedFindings.splice(0, this.sharedFindings.length - 14);
+    }
+    this.record.messages.push({
+      id: `${agentId}-${this.seq}`,
+      agentId,
+      role,
+      type: type as MissionRecord['messages'][number]['type'],
+      content,
+      seq: this.seq,
+      meta: metaStr,
+      createdAt: new Date().toISOString(),
+    });
+    this.record.chunks[agentId] = '';
+    void this.persist(true);
+  }
+
+  private mergeGraph(
+    nodes: Array<{ label: string; kind: string; group: number; weight: number }>,
+    edges: Array<{ sourceLabel: string; targetLabel: string; label?: string }>,
+  ): void {
+    for (const incoming of nodes) {
+      if (this.nodeIdByLabel.has(incoming.label)) continue;
+      this.nodeCounter += 1;
+      const id = `n${this.nodeCounter}`;
+      this.nodeIdByLabel.set(incoming.label, id);
+      this.record.nodes.push({
+        id,
+        label: incoming.label,
+        kind: kindToType(incoming.kind),
+        group: incoming.group,
+        weight: incoming.weight,
+      });
+    }
+
+    for (const edge of edges) {
+      const sourceId = this.nodeIdByLabel.get(edge.sourceLabel);
+      const targetId = this.nodeIdByLabel.get(edge.targetLabel);
+      if (!sourceId || !targetId) continue;
+      const key = `${sourceId}|${targetId}|${edge.label ?? ''}`;
+      if (this.edgeKeys.has(key)) continue;
+      this.edgeKeys.add(key);
+      this.record.edges.push({ id: randomUUID(), sourceId, targetId, label: edge.label });
+    }
   }
 
   private buildAgent(role: AgentRole, runtime: AgentRuntime): Agent {
@@ -246,120 +263,41 @@ export class Orchestrator {
     }
   }
 
-  private async persistAndEmitGraph(
-    nodes: Array<{ label: string; kind: string; group: number; weight: number }>,
-    edges: Array<{ sourceLabel: string; targetLabel: string; label?: string }>,
-  ): Promise<void> {
-    const labelToId = new Map<string, string>();
-    const persisted = [];
-
-    for (const n of nodes) {
-      if (labelToId.has(n.label)) continue;
-      const existing = await prisma.knowledgeNode.findFirst({
-        where: { missionId: this.missionId, label: n.label },
-      });
-      let node = existing;
-      if (!node) {
-        node = await prisma.knowledgeNode.create({
-          data: { missionId: this.missionId, label: n.label, kind: kindToType(n.kind), group: n.group, weight: n.weight },
-        });
-      }
-      labelToId.set(n.label, node.id);
-      persisted.push({ id: node.id, label: node.label, kind: node.kind, group: node.group, weight: node.weight });
-    }
-
-    for (const e of edges) {
-      let sId = labelToId.get(e.sourceLabel);
-      let tId = labelToId.get(e.targetLabel);
-      if (!sId) sId = (await prisma.knowledgeNode.findFirst({ where: { missionId: this.missionId, label: e.sourceLabel } }))?.id;
-      if (!tId) tId = (await prisma.knowledgeNode.findFirst({ where: { missionId: this.missionId, label: e.targetLabel } }))?.id;
-      if (sId) labelToId.set(e.sourceLabel, sId);
-      if (tId) labelToId.set(e.targetLabel, tId);
-      if (!sId || !tId) continue;
-      const dup = await prisma.knowledgeEdge.findFirst({
-        where: { missionId: this.missionId, sourceId: sId, targetId: tId, label: e.label ?? null },
-      });
-      if (dup) continue;
-      await prisma.knowledgeEdge.create({
-        data: { missionId: this.missionId, sourceId: sId, targetId: tId, label: e.label ?? null },
-      });
-    }
-
-    const allNodes = await prisma.knowledgeNode.findMany({ where: { missionId: this.missionId } });
-    const allEdges = await prisma.knowledgeEdge.findMany({ where: { missionId: this.missionId } });
-    this.emit.graphUpdate({
-      missionId: this.missionId,
-      nodes: allNodes.map((n) => ({ id: n.id, label: n.label, kind: n.kind, group: n.group, weight: n.weight })),
-      edges: allEdges.map((e) => ({ id: e.id, sourceId: e.sourceId, targetId: e.targetId, label: e.label ?? undefined })),
-    });
-  }
-
   private async complete(): Promise<void> {
-    const [messages, nodes, edges, report] = await Promise.all([
-      prisma.agentMessage.findMany({
-        where: { agent: { missionId: this.missionId } },
-        include: { agent: { select: { role: true } } },
-        orderBy: { seq: 'asc' },
-      }),
-      prisma.knowledgeNode.findMany({ where: { missionId: this.missionId } }),
-      prisma.knowledgeEdge.findMany({ where: { missionId: this.missionId } }),
-      prisma.mission.findUnique({
-        where: { id: this.missionId },
-        include: { _count: { select: { agents: true } } },
-      }),
-    ]);
-
-    const findings = messages.map((m) => m.content).slice(0, 14);
+    const findings = this.record.messages.map((m) => m.content).slice(0, 14);
     const summary = this.synthesizeReport(findings);
 
-    const representation = await prisma.missionReport.create({
-      data: {
-        missionId: this.missionId,
-        summary,
-        keyFindings: JSON.stringify(findings.slice(0, 5)),
-        risks: JSON.stringify(findings.slice(5, 8)),
-        verdict: summary.split('\n')[0],
-      },
-    });
-
-    const completedAt = new Date();
-    const durationMs = completedAt.getTime() - this.startedAt.getTime();
-    const estCostUsd = this.estimateCost(this.totalTokens);
-
-    const mission = await prisma.mission.update({
-      where: { id: this.missionId },
-      data: {
-        status: 'complete',
-        completedAt,
-        totalTokens: this.totalTokens,
-        estCostUsd,
-      },
-    });
-
-    const analytics = {
-      startedAt: this.startedAt.toISOString(),
-      completedAt: completedAt.toISOString(),
-      durationMs,
-      totalTokens: this.totalTokens,
-      estCostUsd,
-      messages: messages.length,
-      graphNodes: nodes.length,
-      graphEdges: edges.length,
+    this.record.report = {
+      summary,
+      keyFindings: findings.slice(0, 5),
+      risks: findings.slice(5, 8),
+      verdict: summary.split('\n')[0],
     };
 
-    this.emit.missionComplete({
-      missionId: this.missionId,
-      report: {
-        summary: representation.summary,
-        keyFindings: JSON.parse(representation.keyFindings ?? '[]'),
-        risks: JSON.parse(representation.risks ?? '[]'),
-        verdict: representation.verdict,
-      },
-      analytics,
-    });
+    const completedAt = new Date();
+    const durationMs = completedAt.getTime() - this.startedAtMs;
+    this.record.status = 'complete';
+    this.record.completedAt = completedAt.toISOString();
+    this.record.estCostUsd = estimateTokenCost(this.record.totalTokens);
+    this.record.analytics = {
+      startedAt: this.record.startedAt,
+      completedAt: completedAt.toISOString(),
+      durationMs,
+      totalTokens: this.record.totalTokens,
+      estCostUsd: this.record.estCostUsd,
+      messages: this.record.messages.length,
+      graphNodes: this.record.nodes.length,
+      graphEdges: this.record.edges.length,
+    };
 
-    logger.info('mission complete', { id: this.missionId, durationMs, tokens: this.totalTokens, nodes: nodes.length, edges: edges.length });
-    this.emit.log('info', 'mission complete', { id: this.missionId, durationMs, tokens: this.totalTokens, nodes: nodes.length, edges: edges.length });
+    await this.persist(true);
+    logger.info('mission complete', {
+      id: this.record.id,
+      durationMs,
+      tokens: this.record.totalTokens,
+      nodes: this.record.nodes.length,
+      edges: this.record.edges.length,
+    });
   }
 
   private synthesizeReport(findings: string[]): string {
@@ -380,7 +318,41 @@ export class Orchestrator {
     return lines.join('\n');
   }
 
-  private estimateCost(tokens: number): number {
-    return estimateTokenCost(tokens);
+  /** Throttled, serialised snapshot writes: newest state always wins. */
+  private async persist(force = false): Promise<void> {
+    this.dirty = true;
+
+    if (this.trailing) {
+      clearTimeout(this.trailing);
+      this.trailing = null;
+    }
+    if (this.saving) return;
+
+    const elapsed = Date.now() - this.lastSaveAt;
+    if (!force && elapsed < MIN_SAVE_INTERVAL_MS) {
+      this.trailing = setTimeout(() => {
+        this.trailing = null;
+        void this.persist();
+      }, MIN_SAVE_INTERVAL_MS - elapsed);
+      return;
+    }
+
+    this.saving = true;
+    try {
+      do {
+        this.dirty = false;
+        this.lastSaveAt = Date.now();
+        try {
+          await this.store.save(this.record);
+        } catch (err) {
+          logger.warn('mission persist failed', {
+            id: this.record.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      } while (this.dirty);
+    } finally {
+      this.saving = false;
+    }
   }
 }

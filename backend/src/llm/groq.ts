@@ -4,7 +4,10 @@ import { logger } from '../lib/logger';
 const key = process.env.GROQ_API_KEY?.trim();
 export const MODEL = process.env.GROQ_MODEL ?? 'qwen/qwen3.8-27b';
 
-const client = key ? new Groq({ apiKey: key }) : null;
+// Bound each request so a single slow turn can never blow the function budget.
+const client = key
+  ? new Groq({ apiKey: key, timeout: Number(process.env.GROQ_TIMEOUT_MS ?? 15000), maxRetries: 0 })
+  : null;
 
 export interface GroqMessage {
   role: 'system' | 'user' | 'assistant';

@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import dynamic from 'next/dynamic';
 import type { MissionDetailDto } from '@/lib/types';
 import { AgentStrip, AgentOrbit } from '@/components/dashboard/agent-orbit';
+import { MissionBus } from '@/components/dashboard/mission-bus';
 import { ReasoningStream } from '@/components/dashboard/reasoning-stream';
 import { MissionReplay } from '@/components/dashboard/mission-replay';
 import { KnowledgeGraph } from '@/components/dashboard/knowledge-graph';
@@ -11,8 +11,6 @@ import { ReportPanel } from '@/components/dashboard/report-panel';
 import { Panel, StatusDot, Step } from '@/components/ui';
 import { formatClock, formatDuration, statusColor, useNow } from '@/lib/hooks';
 import { useSession } from '@/lib/store';
-
-const MissionScene = dynamic(() => import('@/components/dashboard/mission-scene').then((mod) => mod.MissionScene), { ssr: false });
 
 export function MissionDashboard({ initial, readOnly = false }: { initial: MissionDetailDto | null; readOnly?: boolean }) {
   const now = useNow(500);
@@ -42,6 +40,9 @@ export function MissionDashboard({ initial, readOnly = false }: { initial: Missi
   const displayMessages = messages.length ? messages : initial?.messages ?? [];
   const displayReport = report ?? initial?.report ?? null;
   const displayAnalytics = analytics ?? initial?.analytics ?? null;
+  const displayNodeMap = Object.keys(nodes).length
+    ? nodes
+    : Object.fromEntries((initial?.nodes ?? []).map((n) => [n.id, n] as const));
   const startedAt = initial?.startedAt ?? new Date().toISOString();
   const isRunning = effectiveStatus === 'running' || effectiveStatus === 'queued' || effectiveStatus === 'connecting' || effectiveStatus === 'thinking';
   const elapsed = isRunning ? now - new Date(startedAt).getTime() : analytics?.durationMs ?? 0;
@@ -81,10 +82,10 @@ export function MissionDashboard({ initial, readOnly = false }: { initial: Missi
 
       <div className="grid grid-cols-2 gap-px border border-[var(--line)] bg-[var(--line)] sm:grid-cols-5">
         {[
-            ['agents', `${displayAgents.length || 4}`, 'active lanes'],
+            ['agents', `${displayAgents.length || '—'}`, 'active lanes'],
           ['confidence', `${confidence}%`, 'swarm average'],
           ['dissent', `${dissent}`, 'open attacks'],
-          ['graph', `${Object.keys(nodes).length} / ${edges.length}`, 'nodes / edges'],
+          ['graph', `${displayNodes.length} / ${displayEdges.length}`, 'nodes / edges'],
           ['tokens', `${tokens}`, 'consumed'],
         ].map(([label, value, note]) => (
           <div key={label} className="metric-cell bg-[var(--paper-2)] px-3 py-3">
@@ -95,7 +96,7 @@ export function MissionDashboard({ initial, readOnly = false }: { initial: Missi
         ))}
       </div>
 
-      <MissionScene agents={displayAgents} nodes={displayNodes} edges={displayEdges} />
+      <MissionBus agents={displayAgents} nodes={displayNodes} edges={displayEdges} />
 
       {error && (
         <p className="font-mono m-0 border border-[var(--bad)] bg-[color-mix(in_oklch,var(--bad)_10%,transparent)] px-4 py-2 text-[12px] text-[var(--bad)]">
@@ -118,7 +119,7 @@ export function MissionDashboard({ initial, readOnly = false }: { initial: Missi
             <div className="space-y-2 px-4 py-3">
               <Step label="elapsed" value={formatDuration(elapsed)} />
               <Step label="tokens" value={String(tokens)} />
-              <Step label="stream" value={`${messages.length || initial?.messages.length || 0} msgs`} />
+              <Step label="stream" value={`${displayMessages.length} msgs`} />
               <Step label="graph" value={`${displayNodes.length} n / ${displayEdges.length} e`} />
               {displayReport && displayAnalytics && (
                 <>
@@ -164,8 +165,8 @@ export function MissionDashboard({ initial, readOnly = false }: { initial: Missi
         </div>
 
         {/* right: graph */}
-        <Panel title="Knowledge graph" index="GRP.03" right={<StatusDot color={Object.keys(nodes).length > 0 ? 'var(--ok)' : 'var(--faint)'} />}>
-          <KnowledgeGraph nodes={nodes} edges={edges} />
+        <Panel title="Knowledge graph" index="GRP.03" right={<StatusDot color={displayNodes.length > 0 ? 'var(--ok)' : 'var(--faint)'} />}>
+          <KnowledgeGraph nodes={displayNodeMap} edges={displayEdges} />
         </Panel>
       </div>
     </div>

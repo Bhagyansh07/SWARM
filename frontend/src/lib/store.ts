@@ -1,8 +1,13 @@
 'use client';
 
 import { create } from 'zustand';
-import { io, type Socket } from 'socket.io-client';
-import type { AgentMessageDto, AgentStateDto, KnowledgeEdgeDto, KnowledgeNodeDto, MissionDetailDto } from '@/lib/types';
+import type {
+  AgentMessageDto,
+  AgentStateDto,
+  KnowledgeEdgeDto,
+  KnowledgeNodeDto,
+  MissionDetailDto,
+} from '@/lib/types';
 
 export interface LiveReport {
   summary: string;
@@ -44,18 +49,39 @@ interface SessionState {
   reset: () => void;
 }
 
-const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL ?? 'http://localhost:8080';
+// Missions run in the background on the API; the client follows one by polling
+// its JSON snapshot. 900ms keeps the stream feeling live without hammering the
+// (serverless) API.
+const POLL_MS = 900;
 
-let socket: Socket | null = null;
+let timer: ReturnType<typeof setInterval> | null = null;
 
-const seedFrom = (initial: MissionDetailDto) => ({
-  agents: Object.fromEntries(initial.agents.map((a) => [a.id, a] as const)),
-  messages: [...initial.messages],
-  nodes: Object.fromEntries(initial.nodes.map((n) => [n.id, n] as const)),
-  edges: [...initial.edges],
-  report: initial.report as LiveReport | null,
-  analytics: initial.analytics as LiveAnalytics | null,
-});
+function stopPolling() {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+}
+
+function snapshot(detail: MissionDetailDto) {
+  return {
+    connected: true,
+    missionId: detail.id,
+    missionName: detail.name,
+    status: detail.status,
+    provider: detail.provider,
+    model: detail.model,
+    agents: Object.fromEntries(detail.agents.map((a) => [a.id, a] as const)),
+    messages: [...detail.messages].sort((a, b) => a.seq - b.seq).slice(-200),
+    nodes: Object.fromEntries(detail.nodes.map((n) => [n.id, n] as const)),
+    edges: [...detail.edges],
+    chunks: detail.chunks ?? {},
+    report: (detail.report as LiveReport | null) ?? null,
+    analytics: (detail.analytics as LiveAnalytics | null) ?? null,
+    error: detail.error ?? null,
+    lastAgentId: detail.agents[detail.agents.length - 1]?.id ?? null,
+  };
+}
 
 export const useSession = create<SessionState>((set, get) => ({
   connected: false,
@@ -75,7 +101,9 @@ export const useSession = create<SessionState>((set, get) => ({
   lastAgentId: null,
 
   reset: () => {
+    stopPolling();
     set({
+      connected: false,
       missionId: null,
       missionName: null,
       status: 'connecting',
@@ -94,107 +122,50 @@ export const useSession = create<SessionState>((set, get) => ({
   },
 
   disconnect: () => {
-    socket?.disconnect();
-    socket = null;
+    stopPolling();
     set({ connected: false, missionId: null, missionName: null });
   },
 
   connect: (missionId, initial, onTransition) => {
-    if (get().missionId === missionId && socket?.connected) {
-      if (initial) {
-        const seed = seedFrom(initial);
-        set({ missionId, status: initial.status, agents: seed.agents, messages: seed.messages, nodes: seed.nodes, edges: seed.edges, report: seed.report, analytics: seed.analytics, error: null });
-      }
+    if (get().missionId === missionId && timer) {
+      if (initial) set(snapshot(initial));
       return;
     }
 
-    const seed = initial ?? null;
-    const seedData = seed ? seedFrom(seed) : null;
-    set({
-      missionId,
-      status: seed ? seed.status : 'connecting',
-      error: null,
-      agents: seedData ? seedData.agents : {},
-      messages: seedData ? seedData.messages : [],
-      nodes: seedData ? seedData.nodes : {},
-      edges: seedData ? seedData.edges : [],
-      chunks: {},
-      report: seedData ? seedData.report : null,
-      analytics: seedData ? seedData.analytics : null,
-    });
+    stopPolling();
+    if (initial) set(snapshot(initial));
+    else set({ missionId, status: 'connecting', error: null });
 
-    socket?.disconnect();
+    let alive = true;
+    let failures = 0;
 
-    socket = io(socketUrl, { transports: ['websocket', 'polling'] });
+    const tick = async () => {
+      if (!alive) return;
+      try {
+        const res = await fetch(`/api/missions/${missionId}`, { cache: 'no-store' });
+        if (res.status === 404) {
+          alive = false;
+          stopPolling();
+          set({ status: 'failed', error: 'Mission not found.' });
+          return;
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const body = (await res.json()) as { data: MissionDetailDto };
+        if (!alive) return;
+        failures = 0;
+        set(snapshot(body.data));
+        if (body.data.status === 'complete' || body.data.status === 'failed') {
+          alive = false;
+          stopPolling();
+          onTransition();
+        }
+      } catch {
+        failures += 1;
+        if (failures >= 6 && alive) set({ connected: false });
+      }
+    };
 
-    socket.on('connect', () => {
-      set({ connected: true });
-      socket?.emit('mission:join', { missionId });
-    });
-
-    socket.on('mission:created', (p: { missionId: string; name: string }) => {
-      set({ missionId: p.missionId, missionName: p.name });
-      onTransition();
-    });
-
-    socket.on('agent:update', (p: { missionId: string; agent: AgentStateDto }) => {
-      set((s) => {
-        if (s.missionId && p.missionId !== s.missionId) return s;
-        const prev = s.agents[p.agent.id];
-        if (prev && prev.status === 'done' && p.agent.status === 'working') return s;
-        return { agents: { ...s.agents, [p.agent.id]: p.agent }, lastAgentId: p.agent.id };
-      });
-    });
-
-    socket.on('agent:message', (p: { missionId: string; message: AgentMessageDto }) => {
-      set((s) => {
-        if (s.missionId && p.missionId !== s.missionId) return s;
-        const exists = s.messages.some((m) => m.id === p.message.id);
-        if (exists) return s;
-        return {
-          messages: [...s.messages, p.message].sort((a, b) => a.seq - b.seq).slice(-200),
-          chunks: { ...s.chunks, [p.message.agentId]: '' },
-        };
-      });
-    });
-
-    socket.on('agent:chunk', (p: { missionId: string; agentId: string; role: string; chunk: string }) => {
-      set((s) => {
-        if (s.missionId && p.missionId !== s.missionId) return s;
-        const cur = s.chunks[p.agentId] ?? '';
-        const next = (cur + p.chunk).slice(-2400);
-        return { chunks: { ...s.chunks, [p.agentId]: next } };
-      });
-    });
-
-    socket.on('graph:update', (p: { missionId: string; nodes: KnowledgeNodeDto[]; edges: KnowledgeEdgeDto[] }) => {
-      set((s) => {
-        if (s.missionId && p.missionId !== s.missionId) return s;
-        const nodes = { ...s.nodes };
-        for (const n of p.nodes) nodes[n.id] = n;
-        const edges = [...p.edges];
-        return { nodes, edges };
-      });
-    });
-
-    socket.on('mission:complete', (p: { missionId: string; report: LiveReport; analytics: LiveAnalytics }) => {
-      set((s) => {
-        if (s.missionId && p.missionId !== s.missionId) return s;
-        return { status: 'complete', report: p.report, analytics: p.analytics };
-      });
-    });
-
-    socket.on('mission:failed', (p: { missionId: string; error: string }) => {
-      set((s) => {
-        if (s.missionId && p.missionId !== s.missionId) return s;
-        return { status: 'failed', error: p.error };
-      });
-    });
-
-    socket.on('mission:error', (p: { message: string }) => {
-      set({ error: p.message, status: 'failed' });
-    });
-
-    socket.on('disconnect', () => set({ connected: false }));
+    void tick();
+    timer = setInterval(tick, POLL_MS);
   },
 }));

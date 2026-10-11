@@ -6,8 +6,9 @@ dist/
 next-env.d.ts
 *.log
 logs/
-backend/prisma/dev.db
-backend/prisma/dev.db-journal
+backend/.swarm-data/
+backend/dev.db
+backend/dev.db-journal
 *.tsbuildinfo
 .DS_Store
 .vercel

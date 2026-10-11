@@ -22,8 +22,11 @@ export default function HistoryPage() {
       .catch((e) => setError(e instanceof Error ? e.message : 'load failed'));
   };
 
-  useEffect(load, []);
-  useEffect(() => { load(); const t = setInterval(load, 10000); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 10000);
+    return () => clearInterval(t);
+  }, []);
 
   const del = async (id: string) => {
     if (!confirm('Delete this mission and its trace?')) return;

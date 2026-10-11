@@ -48,14 +48,14 @@ export function Topbar() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[color-mix(in_oklch,var(--paper)_86%,transparent)] backdrop-blur-sm">
+    <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--paper)]">
       <div className="mx-auto flex max-w-[1120px] items-center justify-between gap-5 px-5 py-2.5">
         <div className="flex items-center gap-4">
           <Link href="/" className="flex items-center gap-2.5 text-[var(--ink)] no-underline">
             <GlyphHub width={17} height={17} className="text-[var(--signal)]" />
             <span className="font-display text-[14px] font-black tracking-[0.28em]">SWARM</span>
           </Link>
-          <span className="rack-index hidden sm:inline">orb control · mission deck</span>
+          <span className="rack-index hidden sm:inline">mission control · run deck</span>
         </div>
 
         <nav className="flex items-center gap-5">

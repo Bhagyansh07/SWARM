@@ -126,6 +126,21 @@ export interface MissionDetailDto {
   analytics: MissionAnalytics | null;
 }
 
+export interface MissionSummaryDto {
+  id: string;
+  name: string;
+  template: string;
+  prompt: string;
+  status: string;
+  provider: string;
+  model: string;
+  startedAt: string;
+  completedAt: string | null;
+  totalTokens: number;
+  estCostUsd: number;
+  createdAt: string;
+}
+
 export interface TemplateDef {
   key: string;
   title: string;

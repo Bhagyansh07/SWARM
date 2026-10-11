@@ -1,11 +1,9 @@
 import { Topbar } from '@/components/site/topbar';
 import { Footer } from '@/components/site/footer';
 import { DemoLauncher } from '@/components/landing/demo-launcher';
-import { ArrowNote, GraphFrame, OrbitFrame, ReasoningStreamFrame } from '@/components/landing/showcase';
+import { HeroDeck } from '@/components/landing/hero-deck';
+import { GraphFrame, OrbitFrame, ReasoningStreamFrame } from '@/components/landing/showcase';
 import { StatusDot } from '@/components/ui';
-import dynamic from 'next/dynamic';
-
-const SwarmWorld = dynamic(() => import('@/components/landing/swarm-world').then((mod) => mod.SwarmWorld), { ssr: false });
 
 const SPECS = [
   ['agents', '04'],
@@ -22,7 +20,7 @@ const FLIGHT_PLAN = [
 
 export default function Page() {
   return (
-    <div className="landing-shell bg-grid flex min-h-screen flex-col">
+    <div className="bg-grid flex min-h-screen flex-col">
       <Topbar />
 
       <main className="mx-auto w-full max-w-[1180px] flex-1 px-5">
@@ -52,7 +50,7 @@ export default function Page() {
           </div>
 
           <div className="fade-up order-first lg:order-last" style={{ animationDelay: '80ms' }}>
-            <SwarmWorld />
+            <HeroDeck />
           </div>
         </section>
 
@@ -60,9 +58,9 @@ export default function Page() {
           <div className="mb-5 flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
             <div>
               <p className="rack-index m-0">01 / launch a mission</p>
-              <h2 className="font-display m-0 mt-2 text-[24px] font-black uppercase tracking-[0.04em] text-[var(--ink)]">Give the constellation a question</h2>
+              <h2 className="font-display m-0 mt-2 text-[24px] font-black uppercase tracking-[0.04em] text-[var(--ink)]">Brief the swarm</h2>
             </div>
-            <p className="font-mono m-0 max-w-[260px] text-[10px] uppercase leading-relaxed tracking-[0.12em] text-[var(--faint)]">Choose a pattern, patch the subject, and watch four minds take the field.</p>
+            <p className="font-mono m-0 max-w-[260px] text-[10px] uppercase leading-relaxed tracking-[0.12em] text-[var(--faint)]">Choose a pattern, patch the subject, and watch four lanes run the mission.</p>
           </div>
           <div className="panel launcher-panel">
             <header className="panel-head flex items-center justify-between gap-3 px-4 py-2">
@@ -81,7 +79,7 @@ export default function Page() {
         <section className="mt-16 border-t border-[var(--line)] pt-8 lg:mt-20">
           <div className="section-heading mb-6 flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
             <div>
-              <p className="rack-index m-0">01 / live mission telemetry</p>
+              <p className="rack-index m-0">02 / live mission telemetry</p>
               <h2 className="font-display m-0 mt-2 text-[24px] font-black uppercase tracking-[0.05em] text-[var(--ink)]">Watch the reasoning unfold</h2>
             </div>
             <p className="font-mono m-0 max-w-[270px] text-[10px] uppercase leading-relaxed tracking-[0.12em] text-[var(--faint)]">Evidence, dissent, and confidence stay visible until the verdict.</p>
@@ -125,7 +123,7 @@ export default function Page() {
 
         {/* sticky cta */}
         <section className="mt-16 lg:sticky lg:bottom-4 lg:z-40">
-          <div className="flex flex-col items-center justify-between gap-3 border border-[var(--signal)] bg-[color-mix(in_oklch,var(--field)_88%,transparent)] px-6 py-4 backdrop-blur-sm sm:flex-row">
+          <div className="flex flex-col items-center justify-between gap-3 border border-[var(--signal)] bg-[var(--field)] px-6 py-4 sm:flex-row">
             <div>
               <p className="font-display m-0 text-[14px] font-black uppercase tracking-[0.18em] text-[var(--ink)]">Ready when you are.</p>
               <p className="font-mono m-0 mt-1 text-[10.5px] uppercase tracking-[0.12em] text-[var(--faint)]">

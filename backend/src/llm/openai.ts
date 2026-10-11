@@ -3,7 +3,7 @@ import { logger } from '../lib/logger';
 
 const key = process.env.OPENAI_API_KEY?.trim();
 export const MODEL = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
-const client = key ? new OpenAI({ apiKey: key }) : null;
+const client = key ? new OpenAI({ apiKey: key, timeout: Number(process.env.OPENAI_TIMEOUT_MS ?? 15000), maxRetries: 0 }) : null;
 
 export function openaiAvailable(): boolean {
   return client !== null;

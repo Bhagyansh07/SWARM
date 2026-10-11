@@ -99,6 +99,9 @@ export interface MissionDetailDto {
     graphNodes: number;
     graphEdges: number;
   } | null;
+  /** Live per-agent token buffer, included while a mission is in flight. */
+  chunks?: Record<string, string>;
+  error?: string | null;
 }
 
 export interface TemplateDef {
