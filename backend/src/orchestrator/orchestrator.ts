@@ -32,6 +32,7 @@ export class Orchestrator {
   private readonly record: MissionRecord;
   private readonly store: MissionStore;
   private readonly runSeed: number;
+  private readonly budgetMs: number;
   private readonly startedAtMs: number;
   private sharedFindings: string[] = [];
   private readonly nodeIdByLabel = new Map<string, string>();
@@ -46,10 +47,11 @@ export class Orchestrator {
   private lastSaveAt = 0;
   private trailing: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(args: { record: MissionRecord; store: MissionStore; runSeed: number }) {
+  constructor(args: { record: MissionRecord; store: MissionStore; runSeed: number; budgetMs?: number }) {
     this.record = args.record;
     this.store = args.store;
     this.runSeed = args.runSeed;
+    this.budgetMs = args.budgetMs && args.budgetMs > 0 ? args.budgetMs : MISSION_BUDGET_MS;
     this.startedAtMs = Date.parse(args.record.startedAt) || Date.now();
     this.seq = this.record.messages.reduce((max, m) => Math.max(max, m.seq), 0);
     for (const node of this.record.nodes) this.nodeIdByLabel.set(node.label, node.id);
@@ -66,7 +68,7 @@ export class Orchestrator {
     logger.info('mission started', { id: this.record.id, name: this.record.name, order: this.record.order });
 
     try {
-      const deadline = Date.now() + MISSION_BUDGET_MS;
+      const deadline = Date.now() + this.budgetMs;
       for (let index = 0; index < this.record.order.length; index += 1) {
         const role = this.record.order[index] as AgentRole;
         if (!(role in AGENT_ROSTER) || role === 'orchestrator') continue;

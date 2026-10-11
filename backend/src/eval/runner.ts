@@ -40,28 +40,36 @@ export interface EvalResultsDoc {
 export const EVAL_RESULTS_KEY = 'eval-results.json';
 
 // Each single-task benchmark must fit comfortably inside the serverless budget.
-export const EVAL_SWARM_BUDGET_MS = Number(process.env.EVAL_SWARM_BUDGET_MS ?? 22000);
-const SINGLE_MAX_MS = 15000;
-const JUDGE_MAX_MS = 15000;
+// The whole task is baseline + swarm + judge, so every stage is capped.
+export const EVAL_SWARM_BUDGET_MS = Number(process.env.EVAL_SWARM_BUDGET_MS ?? 18000);
+const SINGLE_MAX_MS = 12000;
+const JUDGE_MAX_MS = 12000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-interface LatencyBound {
-  run<T>(work: () => Promise<T>, maxMs: number): Promise<{ value: T; durationMs: number }>;
-}
+/**
+ * Runs `work` but gives up after `maxMs`. The timer is always cleared and the
+ * in-flight promise keeps a rejection handler, so a late failure can never
+ * surface as an unhandled rejection (which would crash the function).
+ */
+async function withTimeout<T>(work: () => Promise<T>, maxMs: number): Promise<{ value: T; durationMs: number }> {
+  const start = Date.now();
+  let timer: ReturnType<typeof setTimeout> | undefined;
 
-const bound: LatencyBound = {
-  async run(work, maxMs) {
-    const start = Date.now();
-    const value = await Promise.race([
-      work(),
-      sleep(maxMs).then(() => {
-        throw new Error(`step exceeded ${maxMs}ms budget`);
-      }),
-    ]);
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`step exceeded ${maxMs}ms budget`)), maxMs);
+  });
+
+  const task = work();
+  task.catch(() => undefined); // swallow late rejections if the timeout wins
+
+  try {
+    const value = await Promise.race([task, timeout]);
     return { value, durationMs: Date.now() - start };
-  },
-};
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 export async function emptyResultsDoc(): Promise<EvalResultsDoc> {
   return { createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), tasks: [] };
@@ -80,7 +88,7 @@ export async function saveResults(doc: EvalResultsDoc): Promise<void> {
 
 /** Single LLM baseline: one direct call, no swarm. */
 async function runBaseline(task: EvalTask, onChunk?: (chunk: string) => void) {
-  const step = await bound.run(() => groqComplete(BASELINE_SYSTEM, task.brief, { temperature: 0.4, maxTokens: 700, onChunk }), SINGLE_MAX_MS);
+  const step = await withTimeout(() => groqComplete(BASELINE_SYSTEM, task.brief, { temperature: 0.4, maxTokens: 700, onChunk }), SINGLE_MAX_MS);
   return { content: step.value.content, tokens: step.value.tokensUsed, latencyMs: step.durationMs };
 }
 
@@ -115,7 +123,7 @@ async function runSwarm(task: EvalTask): Promise<{ content: string; latencyMs: n
   };
 
   await store.create(record);
-  const orchestrator = new Orchestrator({ record, store, runSeed: Date.now() % 100000 });
+  const orchestrator = new Orchestrator({ record, store, runSeed: Date.now() % 100000, budgetMs: EVAL_SWARM_BUDGET_MS });
   const started = Date.now();
   await orchestrator.start();
   const latencyMs = Date.now() - started;
@@ -137,7 +145,7 @@ async function runSwarm(task: EvalTask): Promise<{ content: string; latencyMs: n
 
 /** LLM-as-judge: a different model scores both answers. */
 async function runJudge(task: EvalTask, baseline: string, swarm: string) {
-  const step = await bound.run(
+  const step = await withTimeout(
     () => groqComplete(JUDGE_SYSTEM, judgePrompt(task, baseline, swarm), { temperature: 0, maxTokens: 700, model: JUDGE_MODEL }),
     JUDGE_MAX_MS,
   );
