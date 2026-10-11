@@ -9,6 +9,7 @@ import { resolveProvider, currentModel } from '../llm/provider';
 import { missionLaunchRateLimit, createRateLimiter } from '../lib/rate-limit';
 import { runInBackground } from '../lib/background';
 import { getStore, type MissionRecord } from '../lib/store';
+import { missionIdFromToken, shareToken } from '../lib/share';
 
 const launchSchema = z.object({
   name: z.string().max(80).optional(),
@@ -125,7 +126,6 @@ export function createMissionRouter(): Router {
         createdAt: now.toISOString(),
         totalTokens: 0,
         estCostUsd: 0,
-        shareToken: null,
         error: null,
         agents: [],
         messages: [],
@@ -157,13 +157,7 @@ export function createMissionRouter(): Router {
         res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Mission not found.', details: {} } });
         return;
       }
-      const token = record.shareToken ?? randomUUID();
-      if (!record.shareToken) {
-        record.shareToken = token;
-        await store.setShareToken(record.id, token);
-        await store.save(record);
-      }
-      res.json({ data: { token } });
+      res.json({ data: { token: shareToken(record.id) } });
     } catch (err) {
       logger.error('share mission failed', { error: err instanceof Error ? err.message : String(err) });
       res.status(500).json({ error: { code: 'INTERNAL', message: 'Failed to create share link.', details: {} } });
@@ -172,7 +166,8 @@ export function createMissionRouter(): Router {
 
   router.get('/shared/:token', async (req: Request, res: Response) => {
     try {
-      const record = await store.findByShareToken(req.params.token);
+      const id = missionIdFromToken(req.params.token);
+      const record = id ? await store.get(id) : null;
       if (!record) {
         res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Shared mission not found.', details: {} } });
         return;

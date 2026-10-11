@@ -63,12 +63,13 @@ Status: 🟢 ACTIVE
 - **Success (200):** `{ "data": { "deleted": true } }`
 
 ### `POST /api/missions/:id/share`
-- **Description:** mint a share token for a read-only snapshot
-- **Success (200):** `{ "data": { "token": "uuid" } }`
+- **Description:** mint a share token. The token is a signed encoding of the
+  mission id, so it is derived (not stored) and resolves instantly.
+- **Success (200):** `{ "data": { "token": "<base64url(id)>.<hmac>" } }`
 
 ### `GET /api/shared/:token`
 - **Description:** read a shared mission snapshot (same shape as mission detail)
-- **Errors:** `404` unknown token
+- **Errors:** `404` invalid signature or unknown mission
 
 ## Live Telemetry (polling)
 

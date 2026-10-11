@@ -37,7 +37,6 @@ export interface MissionRecord {
   createdAt: string;
   totalTokens: number;
   estCostUsd: number;
-  shareToken: string | null;
   error: string | null;
   agents: AgentStateDto[];
   messages: AgentMessageDto[];
@@ -54,13 +53,10 @@ export interface MissionStore {
   get(id: string): Promise<MissionRecord | null>;
   list(limit: number): Promise<MissionSummaryDto[]>;
   remove(id: string): Promise<void>;
-  setShareToken(id: string, token: string): Promise<void>;
-  findByShareToken(token: string): Promise<MissionRecord | null>;
 }
 
 const MISSION_PREFIX = 'missions/';
 const INDEX_KEY = 'index.json';
-const SHARES_KEY = 'shares.json';
 const INDEX_LIMIT = 200;
 
 const missionKey = (id: string) => `${MISSION_PREFIX}${id}.json`;
@@ -181,11 +177,6 @@ class DocumentMissionStore implements MissionStore {
     return Array.isArray(index) ? (index as MissionSummaryDto[]) : [];
   }
 
-  private async readShares(): Promise<Record<string, string>> {
-    const shares = await this.backend.read(SHARES_KEY);
-    return shares && typeof shares === 'object' ? (shares as Record<string, string>) : {};
-  }
-
   async create(record: MissionRecord): Promise<void> {
     await this.backend.write(missionKey(record.id), record);
     const index = await this.readIndex();
@@ -227,18 +218,6 @@ class DocumentMissionStore implements MissionStore {
     this.summaryCache.delete(id);
   }
 
-  async setShareToken(id: string, token: string): Promise<void> {
-    const shares = await this.readShares();
-    shares[token] = id;
-    await this.backend.write(SHARES_KEY, shares);
-  }
-
-  async findByShareToken(token: string): Promise<MissionRecord | null> {
-    const shares = await this.readShares();
-    const id = shares[token];
-    return id ? this.get(id) : null;
-  }
-
   /** Backfill fields when reading documents written by an older shape. */
   private hydrate(record: MissionRecord): MissionRecord {
     return {
@@ -250,7 +229,6 @@ class DocumentMissionStore implements MissionStore {
       chunks: record.chunks ?? {},
       report: record.report ?? null,
       analytics: record.analytics ?? null,
-      shareToken: record.shareToken ?? null,
       error: record.error ?? null,
     };
   }

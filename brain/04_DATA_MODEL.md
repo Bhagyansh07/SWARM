@@ -125,7 +125,10 @@ Agent (1) --- (many) AgentMessage
   edges, report, analytics). Written throttled (≈ every 220 ms) during a run.
 - `index.json` — newest-first array of lightweight summaries (capped at 200);
   feeds `GET /api/missions` without reading every document.
-- `shares.json` — map of share token → mission id.
+
+There is **no share lookup document**: a share token is a signed encoding of the
+mission id (`backend/src/lib/share.ts`), so resolving one is a computation plus a
+read of the existing mission document — no extra write, no read-after-write lag.
 
 Backends (`backend/src/lib/store.ts`):
 
