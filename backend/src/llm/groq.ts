@@ -21,7 +21,7 @@ export function groqAvailable(): boolean {
 export async function groqComplete(
   system: string,
   user: string,
-  opts: { temperature?: number; maxTokens?: number; onChunk?: (chunk: string) => void } = {},
+  opts: { temperature?: number; maxTokens?: number; model?: string; onChunk?: (chunk: string) => void } = {},
 ): Promise<{ content: string; tokensUsed: number }> {
   if (!client) throw new Error('groq client not configured');
 
@@ -32,7 +32,7 @@ export async function groqComplete(
 
   const start = Date.now();
   const stream = await client.chat.completions.create({
-    model: MODEL,
+    model: opts.model ?? MODEL,
     temperature: opts.temperature ?? 0.6,
     max_tokens: opts.maxTokens ?? 700,
     messages,
@@ -52,7 +52,7 @@ export async function groqComplete(
   tokensUsed ||= Math.ceil(content.length / 4);
 
   logger.debug('groq complete', {
-    model: MODEL,
+    model: opts.model ?? MODEL,
     latencyMs: Date.now() - start,
     tokens: tokensUsed,
   });

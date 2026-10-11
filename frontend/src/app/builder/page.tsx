@@ -196,7 +196,7 @@ function BuilderCanvas() {
               proOptions={{ hideAttribution: true }}
               defaultEdgeOptions={{ type: 'smoothstep', style: { stroke: 'var(--line-strong)', strokeWidth: 1 } }}
             >
-              <Background variant={BackgroundVariant.Lines} gap={28} color="oklch(0.34 0.006 60 / 0.1)" />
+              <Background variant={BackgroundVariant.Lines} gap={28} color="var(--grid-line)" />
             </ReactFlow>
           </div>
           <ArrowNote label="Add agents from the palette, then wire them start → verdict. The line order becomes the swarm’s turn order." align="right" className="top-8 hidden xl:block" />
@@ -259,7 +259,7 @@ export default function BuilderPage() {
     <ReactFlowProvider>
       <div className="bg-grid flex min-h-screen flex-col">
         <Topbar />
-        <main className="mx-auto w-full max-w-6xl flex-1 px-5">
+        <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-5">
           <BuilderCanvas />
         </main>
         <Footer />

@@ -1,24 +1,32 @@
 import type { Config } from 'tailwindcss';
 
+/**
+ * Colors are wired to the CSS custom properties declared in globals.css so a
+ * single [data-theme] switch repaints the whole app. Nothing here hard-codes a
+ * color value — that is the point.
+ */
 const config: Config = {
   content: ['./src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        paper: 'oklch(0.155 0.004 60)',
-        paper2: 'oklch(0.185 0.005 60)',
-        paper3: 'oklch(0.225 0.006 60)',
-        line: 'oklch(0.3 0.006 60 / 0.6)',
-        line2: 'oklch(0.42 0.008 60)',
-        ink: 'oklch(0.9 0.005 60)',
-        dim: 'oklch(0.7 0.006 60)',
-        faint: 'oklch(0.52 0.006 60)',
-        signal: 'oklch(0.72 0.185 45)',
-        signalDim: 'oklch(0.72 0.185 45 / 0.16)',
-        ok: 'oklch(0.78 0.12 150)',
-        warn: 'oklch(0.8 0.11 85)',
-        bad: 'oklch(0.66 0.16 25)',
-        field: 'oklch(0.13 0.004 60)',
+        paper: 'var(--paper)',
+        paper2: 'var(--paper-2)',
+        paper3: 'var(--paper-3)',
+        paper4: 'var(--paper-4)',
+        line: 'var(--line)',
+        line2: 'var(--line-strong)',
+        ink: 'var(--ink)',
+        dim: 'var(--dim)',
+        faint: 'var(--faint)',
+        signal: 'var(--signal)',
+        signalDim: 'var(--signal-dim)',
+        signalLine: 'var(--signal-line)',
+        onSignal: 'var(--on-signal)',
+        ok: 'var(--ok)',
+        warn: 'var(--warn)',
+        bad: 'var(--bad)',
+        field: 'var(--field)',
       },
       fontFamily: {
         display: ['var(--font-display)', 'system-ui', 'sans-serif'],
@@ -26,13 +34,16 @@ const config: Config = {
         mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
       },
       borderColor: {
-        DEFAULT: 'oklch(0.3 0.006 60 / 0.6)',
+        DEFAULT: 'var(--line)',
       },
       backgroundImage: {
-        grid: 'linear-gradient(to right, oklch(0.32 0.006 60 / 0.13) 1px, transparent 1px), linear-gradient(to bottom, oklch(0.32 0.006 60 / 0.13) 1px, transparent 1px)',
+        grid: 'var(--grid)',
       },
       backgroundSize: {
         grid: '28px 28px',
+      },
+      boxShadow: {
+        panel: 'var(--shadow)',
       },
       keyframes: {
         fadeUp: {
@@ -47,11 +58,15 @@ const config: Config = {
           '0%, 100%': { opacity: '1' },
           '50%': { opacity: '0' },
         },
+        shimmer: {
+          '100%': { transform: 'translateX(100%)' },
+        },
       },
       animation: {
-        fadeUp: 'fadeUp 0.45s ease-out both',
+        fadeUp: 'fadeUp 0.45s var(--ease) both',
         led: 'led 1.4s step-end infinite',
         cursor: 'cursor 0.9s step-end infinite',
+        shimmer: 'shimmer 1.4s var(--ease) infinite',
       },
     },
   },

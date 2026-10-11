@@ -1,6 +1,8 @@
 import type {
   AgentMessageDto,
   AgentStateDto,
+  EvalResults,
+  EvalRunResult,
   KnowledgeEdgeDto,
   KnowledgeNodeDto,
   MissionDetailDto,
@@ -38,6 +40,11 @@ export const api = {
 
   deleteMission: (id: string) =>
     fetch(`/api/missions/${id}`, { method: 'DELETE' }).then((r) => j<{ data: { deleted: boolean } }>(r)),
+
+  evalResults: () => fetch('/api/eval').then((r) => j<{ data: EvalResults }>(r)),
+
+  runEvalTask: (taskId: string) =>
+    fetch(`/api/eval/run/${taskId}`, { method: 'POST' }).then((r) => j<{ data: { task: EvalRunResult; updatedAt: string } }>(r)),
 };
 
-export type { AgentMessageDto, AgentStateDto, KnowledgeEdgeDto, KnowledgeNodeDto, MissionDetailDto, MissionSummaryDto };
+export type { AgentMessageDto, AgentStateDto, KnowledgeEdgeDto, KnowledgeNodeDto, MissionDetailDto, MissionSummaryDto, EvalResults, EvalRunResult };

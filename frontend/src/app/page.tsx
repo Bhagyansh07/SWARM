@@ -1,9 +1,10 @@
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/ssr';
 import { Topbar } from '@/components/site/topbar';
 import { Footer } from '@/components/site/footer';
 import { DemoLauncher } from '@/components/landing/demo-launcher';
 import { HeroDeck } from '@/components/landing/hero-deck';
 import { GraphFrame, OrbitFrame, ReasoningStreamFrame } from '@/components/landing/showcase';
-import { StatusDot } from '@/components/ui';
+import { StatusDot, Kbd } from '@/components/ui';
 
 const SPECS = [
   ['agents', '04'],
@@ -13,9 +14,9 @@ const SPECS = [
 ];
 
 const FLIGHT_PLAN = [
-  ['01', 'Brief', 'Give the swarm a question. Pick a template — research, product audit, startup validation, code review.'],
-  ['02', 'Converse', 'Four agents take turns: evidence is gathered, attacked by the critic, weighted by the analyst.'],
-  ['03', 'Report', 'The synthesizer converges a verdict, key findings and risks — with the dissent that never resolved.'],
+  ['01', 'Brief', 'Give the swarm a question and pick a pattern — research, audit, validation, review.'],
+  ['02', 'Converse', 'Four specialists take turns: evidence gathered, logic attacked, confidence weighted.'],
+  ['03', 'Report', 'The synthesizer converges a verdict, findings and risks — dissent included.'],
 ];
 
 export default function Page() {
@@ -23,20 +24,20 @@ export default function Page() {
     <div className="bg-grid flex min-h-screen flex-col">
       <Topbar />
 
-      <main className="mx-auto w-full max-w-[1180px] flex-1 px-5">
+      <main id="main" className="mx-auto w-full max-w-[1180px] flex-1 px-5">
         <section className="hero-grid grid gap-8 border-b border-[var(--line)] pb-10 pt-12 lg:grid-cols-[0.82fr_1.18fr] lg:items-center lg:gap-12 lg:pb-12 lg:pt-14">
           <div className="fade-up">
             <p className="font-mono m-0 flex items-center gap-2.5 text-[10.5px] uppercase tracking-[0.18em] text-[var(--faint)]">
               <StatusDot color="var(--ok)" live />
               autonomous research operations / 2026
             </p>
-            <h1 className="font-display mt-6 max-w-[11ch] text-[48px] font-black leading-[0.91] tracking-[-0.045em] text-[var(--ink)] sm:text-[68px]">
-              Questions in.
+            <h1 className="font-display mt-6 max-w-[12ch] text-[46px] font-black leading-[0.92] tracking-[-0.04em] text-[var(--ink)] sm:text-[64px]">
+              Many agents.
               <br />
-              <span className="text-[var(--signal)]">Signal out.</span>
+              <span className="text-[var(--signal)]">One verdict.</span>
             </h1>
-            <p className="mt-7 max-w-[42ch] text-[15px] leading-[1.7] text-[var(--dim)]">
-              SWARM turns a messy brief into a defensible decision. Four specialist agents investigate, challenge, weigh, and converge in one live mission.
+            <p className="mt-7 max-w-[44ch] text-[15px] leading-[1.7] text-[var(--dim)]">
+              SWARM turns a messy brief into a defensible decision. Four specialist agents investigate, challenge, weigh and converge — live, in your browser, on the Groq free tier.
             </p>
 
             <div className="mt-9 grid max-w-[520px] grid-cols-2 border-t border-[var(--line)] pt-3 sm:grid-cols-4">
@@ -60,7 +61,9 @@ export default function Page() {
               <p className="rack-index m-0">01 / launch a mission</p>
               <h2 className="font-display m-0 mt-2 text-[24px] font-black uppercase tracking-[0.04em] text-[var(--ink)]">Brief the swarm</h2>
             </div>
-            <p className="font-mono m-0 max-w-[260px] text-[10px] uppercase leading-relaxed tracking-[0.12em] text-[var(--faint)]">Choose a pattern, patch the subject, and watch four lanes run the mission.</p>
+            <p className="font-mono m-0 max-w-[260px] text-[10px] uppercase leading-relaxed tracking-[0.12em] text-[var(--faint)]">
+              Pick a preset or write your own brief — one live run is <span className="text-[var(--signal)]">free</span>.
+            </p>
           </div>
           <div className="panel launcher-panel">
             <header className="panel-head flex items-center justify-between gap-3 px-4 py-2">
@@ -68,7 +71,7 @@ export default function Page() {
                 <span className="rack-index mr-2 align-middle">DECK-0</span>
                 Launch unit
               </h3>
-              <span className="rack-index">pick a pattern · patch the subject</span>
+              <span className="rack-index">presets · subject · brief</span>
             </header>
             <div className="p-4">
               <DemoLauncher />
@@ -82,7 +85,9 @@ export default function Page() {
               <p className="rack-index m-0">02 / live mission telemetry</p>
               <h2 className="font-display m-0 mt-2 text-[24px] font-black uppercase tracking-[0.05em] text-[var(--ink)]">Watch the reasoning unfold</h2>
             </div>
-            <p className="font-mono m-0 max-w-[270px] text-[10px] uppercase leading-relaxed tracking-[0.12em] text-[var(--faint)]">Evidence, dissent, and confidence stay visible until the verdict.</p>
+            <p className="font-mono m-0 max-w-[270px] text-[10px] uppercase leading-relaxed tracking-[0.12em] text-[var(--faint)]">
+              Evidence, dissent and confidence stay visible until the verdict.
+            </p>
           </div>
           <div className="max-w-[720px]">
             <ReasoningStreamFrame />
@@ -122,17 +127,23 @@ export default function Page() {
         </section>
 
         {/* sticky cta */}
-        <section className="mt-16 lg:sticky lg:bottom-4 lg:z-40">
-          <div className="flex flex-col items-center justify-between gap-3 border border-[var(--signal)] bg-[var(--field)] px-6 py-4 sm:flex-row">
+        <section className="mt-16 lg:sticky lg:bottom-4 lg:z-[var(--z-sticky)]">
+          <div className="flex flex-col items-center justify-between gap-3 border border-[var(--signal)] bg-[var(--field)] px-6 py-4 shadow-[var(--shadow)] sm:flex-row">
             <div>
               <p className="font-display m-0 text-[14px] font-black uppercase tracking-[0.18em] text-[var(--ink)]">Ready when you are.</p>
               <p className="font-mono m-0 mt-1 text-[10.5px] uppercase tracking-[0.12em] text-[var(--faint)]">
                 groq free tier · live stream in your browser
               </p>
             </div>
-            <a href="#launcher" className="key px-5 py-2.5 text-[12px] no-underline">
-              Launch a mission
-            </a>
+            <div className="flex items-center gap-3">
+              <span className="hidden items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--faint)] sm:flex">
+                <MagnifyingGlass size={12} aria-hidden /> jump to
+                <Kbd>Ctrl K</Kbd>
+              </span>
+              <a href="#launcher" className="key px-5 py-2.5 text-[12px] no-underline">
+                Launch a mission
+              </a>
+            </div>
           </div>
         </section>
       </main>

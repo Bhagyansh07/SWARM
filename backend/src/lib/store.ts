@@ -85,7 +85,7 @@ interface DocBackend {
 }
 
 /** File-backed document store: used for local development and self-hosting. */
-class FileBackend implements DocBackend {
+export class FileBackend implements DocBackend {
   private readonly dir: string;
 
   constructor(dir: string) {
@@ -164,7 +164,7 @@ function createBackend(): DocBackend {
   return new FileBackend(dir);
 }
 
-class DocumentMissionStore implements MissionStore {
+export class DocumentMissionStore implements MissionStore {
   private readonly backend: DocBackend;
   private readonly summaryCache = new Map<string, string>();
 
@@ -239,4 +239,13 @@ let singleton: MissionStore | null = null;
 export function getStore(): MissionStore {
   if (!singleton) singleton = new DocumentMissionStore(createBackend());
   return singleton;
+}
+
+/** Generic JSON document read/write using the same File/Blob backends as missions. */
+export async function readDoc<T>(key: string): Promise<T | null> {
+  return (await createBackend().read(key)) as T | null;
+}
+
+export async function writeDoc<T>(key: string, value: T): Promise<void> {
+  await createBackend().write(key, value);
 }

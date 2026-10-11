@@ -3,6 +3,8 @@ import { getTemplate, resolveConfiguration } from '../src/orchestrator/templates
 import { TEMPLATES, AGENT_ROSTER, type AgentRole } from '../src/types';
 import { simulate } from '../src/llm/simulation';
 import { missionIdFromToken, shareToken } from '../src/lib/share';
+import { parseJudgeOutput } from '../src/eval/parse';
+import { EVAL_TASKS } from '../src/eval/tasks';
 
 describe('template registry', () => {
   it('exposes the four mission templates in order', () => {
@@ -72,5 +74,42 @@ describe('share tokens', () => {
     expect(missionIdFromToken(`${token.slice(0, -2)}zz`)).toBeNull();
     expect(missionIdFromToken('not-a-token')).toBeNull();
     expect(missionIdFromToken('')).toBeNull();
+  });
+});
+
+describe('eval bench', () => {
+  it('defines the fixed task catalogue across 4 categories', () => {
+    expect(EVAL_TASKS.length).toBeGreaterThanOrEqual(4);
+    expect(new Set(EVAL_TASKS.map((t) => t.category)).size).toBeGreaterThanOrEqual(3);
+    expect(new Set(EVAL_TASKS.map((t) => t.id)).size).toBe(EVAL_TASKS.length);
+  });
+
+  it('parses the judge verdict exactly', () => {
+    const out = parseJudgeOutput(
+      [
+        'SCORE_A: 3.5',
+        'SCORE_B: 4.0',
+        'WINNER: B',
+        'RATIONALE: B grounds its claims with concrete players and orders risks by impact, while A stays generic.',
+      ].join('\n'),
+    );
+    expect(out.scoreA).toBeCloseTo(3.5);
+    expect(out.scoreB).toBeCloseTo(4);
+    expect(out.winner).toBe('B');
+    expect(out.rationale).toContain('concrete players');
+  });
+
+  it('tolerates loose formatting and clamps invalid scores to 0', () => {
+    const out = parseJudgeOutput('SCORE_A 2\nSCORE_B 9\nwinner tie explained elsewhere');
+    expect(out.scoreA).toBe(2);
+    expect(out.scoreB).toBe(0);
+    expect(out.winner).toBe('TIE');
+  });
+
+  it('reports a draw when the judge cannot separate the two', () => {
+    const out = parseJudgeOutput('SCORE_A 3\nSCORE_B 3\nWINNER: TIE\nRATIONALE: Both miss the same constraint.');
+    expect(out.scoreA).toBe(3);
+    expect(out.scoreB).toBe(3);
+    expect(out.winner).toBe('TIE');
   });
 });

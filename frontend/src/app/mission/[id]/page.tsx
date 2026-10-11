@@ -2,10 +2,11 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import Link from 'next/link';
+import { ArrowLeft } from '@phosphor-icons/react/dist/ssr';
 import { MissionDashboard } from '@/components/dashboard/mission-dashboard';
 import { Topbar } from '@/components/site/topbar';
 import { Footer } from '@/components/site/footer';
+import { SkeletonPanel } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/store';
 import type { MissionDetailDto } from '@/lib/types';
@@ -21,16 +22,13 @@ function MissionView() {
 
   useEffect(() => {
     setMiss(false);
+    setInitial(null);
     api
       .getMission(id)
       .then((r) => {
         setInitial(r.data);
-        setMiss(false);
       })
-      .catch(() => {
-        setMiss(true);
-        setInitial(null);
-      });
+      .catch(() => setMiss(true));
   }, [id]);
 
   useEffect(() => {
@@ -43,16 +41,30 @@ function MissionView() {
   if (miss) {
     return (
       <div className="flex flex-col items-center gap-4 py-32">
-        <p className="font-mono m-0 text-[11px] uppercase tracking-[0.2em] text-[var(--faint)]">mission not found</p>
-        <Link href="/" className="ghost px-4 py-2 text-[12px] no-underline">
-          Back to HQ
-        </Link>
+        <p className="rack-index m-0">mission not found / 410</p>
+        <p className="m-0 max-w-[34ch] text-center text-[13.5px] leading-relaxed text-[var(--dim)]">
+          This run no longer exists or its id was mistyped. The library still has the others.
+        </p>
+        <div className="flex gap-3">
+          <a href="/history" className="ghost items-center gap-2 px-4 py-2 text-[12px] no-underline">
+            <ArrowLeft size={13} aria-hidden /> Run library
+          </a>
+        </div>
       </div>
     );
   }
 
   if (!initial) {
-    return <p className="font-mono m-0 py-32 text-center text-[11px] uppercase tracking-[0.2em] text-[var(--faint)]">loading mission…</p>;
+    return (
+      <div className="flex flex-col gap-4 pb-16 pt-10">
+        <div className="skeleton h-6 w-2/5" />
+        <div className="grid gap-4 lg:grid-cols-[300px_1fr_340px]">
+          <SkeletonPanel />
+          <SkeletonPanel />
+          <SkeletonPanel />
+        </div>
+      </div>
+    );
   }
 
   return <MissionDashboard initial={initial} />;
@@ -63,7 +75,7 @@ export default function MissionPage() {
     <Suspense fallback={null}>
       <div className="bg-grid flex min-h-screen flex-col">
         <Topbar />
-        <main className="mx-auto w-full max-w-[1160px] flex-1 px-5">
+        <main id="main" className="mx-auto w-full max-w-[1160px] flex-1 px-5">
           <MissionView />
         </main>
         <Footer />

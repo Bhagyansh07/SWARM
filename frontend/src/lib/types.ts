@@ -10,6 +10,36 @@ export type MessageType =
   | 'live_chunk'
   | 'system';
 
+export interface EvalRunResult {
+  taskId: string;
+  title: string;
+  category: string;
+  brief: string;
+  baseline: { content: string; latencyMs: number; tokens: number };
+  swarm: { content: string; latencyMs: number; tokens: number; verdict: string };
+  judge: { scoreA: number; scoreB: number; winner: 'A' | 'B' | 'TIE'; rationale: string };
+  model: string;
+  judgeModel: string;
+  provider: string;
+  ranAt: string;
+}
+
+export interface EvalResults {
+  tasks: EvalRunResult[];
+  createdAt: string;
+  updatedAt: string;
+  summary: {
+    total: number;
+    byWinner: Record<string, number>;
+    avgScoreA: number;
+    avgScoreB: number;
+    avgTokensA: number;
+    avgTokensB: number;
+    avgLatencyA: number;
+    avgLatencyB: number;
+  };
+}
+
 export interface AgentMeta {
   role: AgentRole;
   name: string;

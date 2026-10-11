@@ -1,6 +1,7 @@
 import express, { type Express } from 'express';
 import cors from 'cors';
 import { createMissionRouter } from './api/missions';
+import { createEvalRouter } from './api/eval';
 
 /**
  * Builds the Express application. Shared by the long-running local server
@@ -20,6 +21,7 @@ export function createApp(): Express {
   });
 
   app.use('/api', createMissionRouter());
+  app.use('/api', createEvalRouter());
 
   return app;
 }

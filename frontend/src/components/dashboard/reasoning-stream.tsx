@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useState } from 'react';
 import type { AgentMessageDto } from '@/lib/types';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/ssr';
 
 const GEN: Record<string, { tag: string; color: string }> = {
   critique: { tag: 'ATTACK', color: 'var(--warn)' },
@@ -24,6 +25,7 @@ export function ReasoningStream({
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const [lens, setLens] = useState<'all' | 'evidence' | 'critique' | 'synthesis'>('all');
+  const [needle, setNeedle] = useState('');
 
   useEffect(() => {
     const el = boxRef.current;
@@ -31,7 +33,11 @@ export function ReasoningStream({
   }, [messages, chunks]);
 
   const activeChunks = Object.entries(chunks).filter(([, c]) => c.trim().length > 0);
-  const filteredMessages = lens === 'all' ? messages : messages.filter((message) => message.type === lens);
+  const filteredMessages = messages.filter((m) => {
+    if (lens !== 'all' && m.type !== lens) return false;
+    if (!needle.trim()) return true;
+    return m.content.toLowerCase().includes(needle.trim().toLowerCase());
+  });
   const lensOptions = [
     ['all', 'all signals', messages.length],
     ['evidence', 'evidence', messages.filter((message) => message.type === 'evidence').length],
@@ -41,7 +47,7 @@ export function ReasoningStream({
 
   return (
     <div ref={boxRef} className="h-[460px] overflow-y-auto">
-      <div className="sticky top-0 z-10 flex flex-wrap gap-1 border-b border-[var(--line)] bg-[var(--paper-2)] px-3 py-2">
+      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-1 border-b border-[var(--line)] bg-[var(--paper-2)] px-3 py-2">
         {lensOptions.map(([key, label, count]) => (
           <button
             key={key}
@@ -51,6 +57,16 @@ export function ReasoningStream({
             {label} <span className="opacity-60">{count}</span>
           </button>
         ))}
+        <span className="relative ml-auto min-w-0">
+          <MagnifyingGlass size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--faint)]" aria-hidden />
+          <input
+            value={needle}
+            onChange={(e) => setNeedle(e.target.value)}
+            placeholder="search stream…"
+            className="field w-full py-1 pl-6 pr-2 font-mono text-[10.5px] text-[var(--ink)] outline-none sm:w-[150px]"
+            aria-label="Search messages in stream"
+          />
+        </span>
       </div>
 
       {filteredMessages.map((m, i) => {
