@@ -15,13 +15,15 @@
   color-scheme: dark;
 
   /* geometry */
-  --radius: 2px;
-  --radius-lg: 3px;
+  --radius: 4px;
+  --radius-sm: 2px;
+  --radius-lg: 6px;
 
   /* motion */
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --fast: 120ms;
   --base: 200ms;
+  --slow: 320ms;
 
   /* z-index scale (documented, not ad hoc) */
   --z-sticky: 40;
@@ -224,8 +226,8 @@ select:focus-visible,
   height: 420px;
   pointer-events: none;
   background:
-    radial-gradient(42% 55% at 78% 18%, var(--signal-dim), transparent 70%),
-    radial-gradient(34% 48% at 22% 12%, color-mix(in oklch, var(--ok) 9%, transparent), transparent 70%);
+    radial-gradient(38% 50% at 78% 16%, color-mix(in oklch, var(--signal) 14%, transparent), transparent 72%),
+    radial-gradient(30% 44% at 22% 10%, color-mix(in oklch, var(--ok) 6%, transparent), transparent 72%);
   z-index: -1;
 }
 
@@ -233,6 +235,7 @@ select:focus-visible,
   position: relative;
   background: var(--paper-2);
   border: 1px solid var(--line);
+  border-radius: var(--radius);
 }
 .panel-head {
   border-bottom: 1px solid var(--line);
@@ -533,6 +536,33 @@ textarea::placeholder {
   animation: fadeUp 0.45s var(--ease) both;
 }
 
+/* Motion primitives (ibelick-style, subtle) */
+.animate-in {
+  animation-duration: 0.24s;
+  animation-timing-function: var(--ease);
+  animation-fill-mode: both;
+}
+
+.fade-in {
+  animation-name: fadeIn;
+}
+
+.fade-in-up {
+  animation-name: fadeInUp;
+}
+
+.fade-in-from-top {
+  animation-name: fadeInFromTop;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -548,6 +578,37 @@ textarea::placeholder {
   from {
     opacity: 0;
     transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
   }
   to {
     opacity: 1;

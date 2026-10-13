@@ -83,9 +83,8 @@ export function Topbar() {
         <div className="flex items-center gap-4">
           <Link href="/" className="flex items-center gap-2.5 text-[var(--ink)] no-underline" aria-label="SWARM home">
             <GlyphHub width={17} height={17} className="text-[var(--signal)]" />
-            <span className="font-display text-[14px] font-black tracking-[0.28em]">SWARM</span>
+            <span className="font-display text-[14px] font-bold tracking-[0.16em] sm:text-[15px]">SWARM</span>
           </Link>
-          <span className="rack-index hidden sm:inline">mission control</span>
         </div>
 
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">

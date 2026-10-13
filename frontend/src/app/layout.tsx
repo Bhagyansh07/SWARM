@@ -4,6 +4,8 @@ import { ThemeProvider } from '@/components/theme/theme-provider';
 import { themeScript } from '@/components/theme/theme-script';
 import { ToastProvider } from '@/components/ui/toast';
 import { SkipLink } from '@/components/site/skip-link';
+import { Topbar } from '@/components/site/topbar';
+import { Footer } from '@/components/site/footer';
 import './globals.css';
 
 const display = Archivo({
@@ -53,7 +55,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <ToastProvider>
             <SkipLink />
-            {children}
+            <Topbar />
+            <div className="flex-1 animate-in fade-in-up">{children}</div>
+            <Footer />
           </ToastProvider>
         </ThemeProvider>
       </body>

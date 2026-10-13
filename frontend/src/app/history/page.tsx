@@ -131,8 +131,7 @@ export default function HistoryPage() {
   };
 
   return (
-    <div className="bg-grid flex min-h-screen flex-col">
-      <Topbar />
+    <div className="flex min-h-screen flex-col">
       <main id="main" className="mx-auto w-full max-w-[1000px] flex-1 px-5 pb-16">
         <div className="flex items-end justify-between gap-4 border-b border-[var(--line)] pb-4 pt-10">
           <div>

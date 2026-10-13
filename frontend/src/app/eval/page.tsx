@@ -166,10 +166,9 @@ export default function EvalPage() {
   const s = results?.summary;
 
   return (
-    <div className="bg-grid flex min-h-screen flex-col">
-      <Topbar />
+    <div className="flex min-h-screen flex-col">
       <main id="main" className="mx-auto w-full max-w-[1060px] flex-1 px-5 pb-16">
-        <div className="flex flex-col justify-between gap-4 border-b border-[var(--line)] pb-4 pt-10 sm:flex-row sm:items-end">
+        <div className="flex flex-col justify-between gap-4 border-b border-[var(--line)] pb-4 pt-10 sm:flex-row sm:items-end animate-in fade-in-up">
           <div>
             <p className="rack-index m-0">benchmark rig · single LLM vs multi-agent</p>
             <h1 className="font-display m-0 mt-2 text-[26px] font-black uppercase tracking-[0.06em] text-[var(--ink)]">Methodology lab</h1>

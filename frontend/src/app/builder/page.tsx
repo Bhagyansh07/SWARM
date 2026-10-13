@@ -163,7 +163,7 @@ function BuilderCanvas() {
   const addable = (Object.keys(AGENT_ROSTER) as AgentRole[]).filter((r) => r !== 'orchestrator');
 
   return (
-    <div className="pb-16 pt-8">
+    <div className="pb-16 pt-8 animate-in fade-in-up">
       <div className="flex flex-col gap-3 border-b border-[var(--line)] pb-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="rack-index m-0">09 · workflow builder</p>

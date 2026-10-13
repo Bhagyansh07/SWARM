@@ -21,13 +21,12 @@ const FLIGHT_PLAN = [
 
 export default function Page() {
   return (
-    <div className="bg-grid flex min-h-screen flex-col">
-      <Topbar />
+    <div className="flex min-h-screen flex-col">
 
       <main id="main" className="mx-auto w-full max-w-[1180px] flex-1 px-5">
         <section className="hero-grid grid gap-8 border-b border-[var(--line)] pb-10 pt-12 lg:grid-cols-[0.82fr_1.18fr] lg:items-center lg:gap-12 lg:pb-12 lg:pt-14">
-          <div className="fade-up">
-            <p className="font-mono m-0 flex items-center gap-2.5 text-[10.5px] uppercase tracking-[0.18em] text-[var(--faint)]">
+          <div className="animate-in fade-in-up">
+            <p className="font-mono m-0 flex items-center gap-2.5 text-[10px] tracking-[0.12em] text-[var(--faint)]">
               <StatusDot color="var(--ok)" live />
               autonomous research operations / 2026
             </p>
@@ -150,7 +149,6 @@ export default function Page() {
 
       <div className="h-12" />
 
-      <Footer />
     </div>
   );
 }
