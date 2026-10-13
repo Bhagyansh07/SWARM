@@ -257,7 +257,7 @@ function BuilderCanvas() {
 export default function BuilderPage() {
   return (
     <ReactFlowProvider>
-      <div className="bg-grid flex min-h-screen flex-col">
+      <div className="flex min-h-screen flex-col">
         <Topbar />
         <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-5">
           <BuilderCanvas />

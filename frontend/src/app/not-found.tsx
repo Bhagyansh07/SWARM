@@ -5,7 +5,7 @@ import { Footer } from '@/components/site/footer';
 
 export default function NotFound() {
   return (
-    <div className="bg-grid flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col">
       <Topbar />
       <main id="main" className="mx-auto flex w-full max-w-[720px] flex-1 flex-col items-center justify-center gap-5 px-5 py-24 text-center">
         <div className="flex h-14 w-14 items-center justify-center border border-[var(--line-strong)] bg-[var(--paper-2)] text-[var(--faint)]">

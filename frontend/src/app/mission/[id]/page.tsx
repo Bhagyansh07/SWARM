@@ -73,7 +73,7 @@ function MissionView() {
 export default function MissionPage() {
   return (
     <Suspense fallback={null}>
-      <div className="bg-grid flex min-h-screen flex-col">
+      <div className="flex min-h-screen flex-col">
         <Topbar />
         <main id="main" className="mx-auto w-full max-w-[1160px] flex-1 px-5">
           <MissionView />

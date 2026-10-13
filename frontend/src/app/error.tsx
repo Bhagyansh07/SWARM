@@ -9,7 +9,7 @@ export default function ErrorBoundary({ error, reset }: { error: Error & { diges
   }, [error]);
 
   return (
-    <div className="bg-grid flex min-h-screen flex-col items-center justify-center gap-5 px-5 py-24 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-5 px-5 py-24 text-center">
       <div className="flex h-14 w-14 items-center justify-center border border-[var(--bad)] text-[var(--bad)]">
         <WarningCircle size={24} aria-hidden />
       </div>
