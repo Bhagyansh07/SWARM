@@ -186,3 +186,7 @@ POST   /api/eval/run/:taskId → run one benchmark task (rate-limited)
 - **0.4.0** — serverless port: polling API, Blob-backed mission store, no 3D
 - **1.0.0** — dual-theme instrument UI, PDF/Markdown/JSON export, share links,
   command palette, benchmark rig with an independent judge, CI
+## Live Demo
+- **Web**: [https://swarm-web-two.vercel.app/](https://swarm-web-two.vercel.app/)
+- **API Health**: [https://swarm-api-lyart.vercel.app/api/health](https://swarm-api-lyart.vercel.app/api/health)
+
