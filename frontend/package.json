@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
-    "jspdf": "^2.5.2",
+    "jspdf": "^4.2.1",
     "next": "^14.2.15",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
