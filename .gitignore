@@ -19,3 +19,6 @@ skills-lock.json
 frontend/src/app/globals.css.backup
 badge.txt
 .copilot-cockpit-logs/
+
+# Internal planning / agent working notes (not part of the product).
+brain/

@@ -36,7 +36,7 @@ SWARM is a mission-control workbench for coordinating AI agent swarms. Four spec
 
 | Mission History | Benchmark Evaluation | Workflow Builder |
 |---|---|---|
-| | ![SWARM Builder](docs/screenshots/05-builder-dark.png) |
+| ![SWARM Mission History](docs/screenshots/03-history-dark.png) | ![SWARM Benchmark Evaluation](docs/screenshots/04-eval-dark.png) | ![SWARM Workflow Builder](docs/screenshots/05-builder-dark.png) |
 
 ## Tech Stack
 
