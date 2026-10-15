@@ -3,41 +3,37 @@
 import type { AgentStateDto, KnowledgeEdgeDto, KnowledgeNodeDto } from '@/lib/types';
 
 const ROLE_SHORT: Record<string, string> = {
-  researcher: 'RES',
-  analyst: 'ANL',
-  critic: 'CRT',
-  synthesizer: 'SYN',
-  orchestrator: 'ORC',
+  researcher: 'KAI · RESEARCH',
+  analyst: 'LYRA · ANALYST',
+  critic: 'VEX · CRITIC',
+  synthesizer: 'NOVA · SYNTHESIZER',
+  orchestrator: 'ORCHESTRATOR',
 };
 
 const PHASE_LABEL: Record<string, string> = {
-  initialize: 'boot',
-  gather: 'gather',
-  analyze: 'analyze',
-  adversarial: 'attack',
-  synthesize: 'converge',
-  rebuttal: 'rebut',
-  'rebuttal:complete': 'closed',
+  initialize: 'Initializing',
+  gather: 'Gathering Evidence',
+  analyze: 'Quantitative Analysis',
+  adversarial: 'Adversarial Attack',
+  synthesize: 'Convergence',
+  rebuttal: 'Rebuttal Defense',
+  'rebuttal:complete': 'Resolved',
 };
 
 function laneColor(status: string): string {
   switch (status) {
     case 'done':
-      return 'var(--ok)';
+      return '#10b981';
     case 'working':
     case 'thinking':
-      return 'var(--signal)';
+      return '#00d2ff';
     case 'failed':
-      return 'var(--bad)';
+      return '#ef4444';
     default:
       return 'var(--faint)';
   }
 }
 
-/**
- * A flat, instrument-style schematic of the agent lanes wired to a shared bus.
- * It replaces the old WebGL scene: same information, none of the spectacle.
- */
 export function MissionBus({
   agents,
   nodes,
@@ -49,51 +45,62 @@ export function MissionBus({
 }) {
   const lanes = agents;
   const count = Math.max(1, lanes.length);
-  const W = Math.max(700, count * 210 + 60);
-  const H = 138;
-  const railY = 112;
+  const W = Math.max(760, count * 220 + 80);
+  const H = 160;
+  const railY = 130;
   const slot = W / count;
-  const blockW = Math.min(168, slot - 30);
+  const blockW = Math.min(180, slot - 30);
 
   return (
-    <section className="panel overflow-hidden">
-      <header className="panel-head flex items-center justify-between gap-3 px-4 py-2">
-        <h3 className="font-display m-0 text-[12px] font-bold uppercase tracking-[0.2em] text-[var(--ink)]">
-          <span className="rack-index mr-2 align-middle">BUS.00</span>
-          Agent bus
-        </h3>
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--faint)]">
-          {nodes.length} nodes · {edges.length} links
+    <section className="relative overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--paper-2)]/80 shadow-[var(--shadow)] backdrop-blur-xl">
+      <header className="flex items-center justify-between border-b border-[var(--line)] bg-white/[0.015] px-5 py-3 backdrop-blur-md">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-cyan-400">
+            Real-Time Neural Highway
+          </span>
+          <span className="text-white/20">|</span>
+          <span className="font-display text-[13px] font-semibold text-white">
+            Shared Multi-Agent Consensus Bus
+          </span>
+        </div>
+        <span className="font-mono text-[11px] text-slate-400">
+          {nodes.length} Semantic Nodes · {edges.length} Cross-Entity Links
         </span>
       </header>
-      <div className="overflow-x-auto px-3 py-3">
-        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', minWidth: W, height: H }} role="img" aria-label="Agent bus wiring">
-          {/* shared rail */}
-          <line x1={18} y1={railY} x2={W - 18} y2={railY} stroke="var(--line-strong)" strokeWidth={1.5} />
-          {Array.from({ length: Math.floor((W - 36) / 22) }, (_, i) => (
+
+      <div className="overflow-x-auto px-4 py-4">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          style={{ width: '100%', minWidth: W, height: H }}
+          role="img"
+          aria-label="Agent consensus bus wiring"
+        >
+          {/* Main Shared Consensus Rail */}
+          <line x1={20} y1={railY} x2={W - 20} y2={railY} stroke="rgba(255,255,255,0.12)" strokeWidth={2} />
+          {/* Tick markers */}
+          {Array.from({ length: Math.floor((W - 40) / 24) }, (_, i) => (
             <line
               key={i}
-              x1={18 + i * 22}
-              y1={railY - 3}
-              x2={18 + i * 22}
-              y2={railY + 3}
-              stroke="var(--faint)"
-              strokeWidth={0.5}
-              opacity={0.45}
+              x1={20 + i * 24}
+              y1={railY - 4}
+              x2={20 + i * 24}
+              y2={railY + 4}
+              stroke="rgba(255,255,255,0.2)"
+              strokeWidth={0.7}
             />
           ))}
 
           {lanes.length === 0 && (
             <text
               x={W / 2}
-              y={railY - 34}
+              y={railY - 40}
               textAnchor="middle"
               fontFamily="var(--font-mono), monospace"
-              fontSize={11}
-              letterSpacing="3"
+              fontSize={12}
+              letterSpacing="2"
               fill="var(--faint)"
             >
-              AWAITING LANES
+              INITIALIZING AGENT LANES...
             </text>
           )}
 
@@ -107,48 +114,57 @@ export function MissionBus({
 
             return (
               <g key={agent.id}>
-                {/* connector to the rail */}
+                {/* Connector Line down to the central bus */}
                 <line
                   x1={cx}
-                  y1={54}
+                  y1={86}
                   x2={cx}
                   y2={railY}
                   stroke={color}
-                  strokeWidth={live ? 1.4 : 1}
+                  strokeWidth={live ? 2 : 1.2}
                   strokeDasharray={live ? '4 3' : undefined}
-                  opacity={live ? 0.95 : 0.5}
+                  opacity={live ? 1 : 0.6}
                 >
-                  {live && <animate attributeName="stroke-dashoffset" from="14" to="0" dur="0.7s" repeatCount="indefinite" />}
+                  {live && <animate attributeName="stroke-dashoffset" from="14" to="0" dur="0.6s" repeatCount="indefinite" />}
                 </line>
-                <circle cx={cx} cy={railY} r={3.2} fill={color} opacity={live ? 1 : 0.6} />
+                <circle cx={cx} cy={railY} r={live ? 4.5 : 3.5} fill={color} />
 
-                {/* lane block */}
+                {/* Outer Agent Lane Card */}
                 <rect
                   x={x}
-                  y={14}
+                  y={12}
                   width={blockW}
-                  height={40}
-                  fill="var(--paper-3)"
-                  stroke={live ? color : 'var(--line-strong)'}
-                  strokeWidth={live ? 1.4 : 1}
+                  height={74}
+                  rx={10}
+                  fill="#0c101a"
+                  stroke={live ? color : 'rgba(255,255,255,0.1)'}
+                  strokeWidth={live ? 1.5 : 1}
                 />
-                <rect x={x} y={14} width={4} height={40} fill={color} opacity={live ? 1 : 0.7} />
+                {/* Left accent border */}
+                <rect x={x} y={12} width={4} height={74} rx={2} fill={color} />
 
-                <text x={x + 12} y={31} fontFamily="var(--font-mono), monospace" fontSize={11} letterSpacing="1.5" fill="var(--ink)">
-                  {ROLE_SHORT[agent.role] ?? agent.role.slice(0, 3).toUpperCase()}
+                <text x={x + 14} y={32} fontFamily="var(--font-display), sans-serif" fontWeight="700" fontSize={11.5} letterSpacing="0.5" fill="#ffffff">
+                  {ROLE_SHORT[agent.role] ?? agent.role.toUpperCase()}
                 </text>
-                <text x={x + 12} y={46} fontFamily="var(--font-mono), monospace" fontSize={8.5} letterSpacing="1.4" fill="var(--faint)">
-                  {phase.toUpperCase()} · {agent.status.toUpperCase()}
+                <text x={x + 14} y={48} fontFamily="var(--font-mono), monospace" fontSize={9.5} letterSpacing="0.5" fill="var(--faint)">
+                  {phase}
                 </text>
 
-                {/* confidence meter */}
-                <rect x={x + 12} y={62} width={blockW - 24} height={3} fill="var(--line)" />
-                <rect x={x + 12} y={62} width={(blockW - 24) * Math.min(1, Math.max(0, agent.confidence))} height={3} fill={color} />
+                {/* Confidence Bar */}
+                <rect x={x + 14} y={56} width={blockW - 28} height={4} rx={2} fill="rgba(255,255,255,0.08)" />
+                <rect
+                  x={x + 14}
+                  y={56}
+                  width={(blockW - 28) * Math.min(1, Math.max(0, agent.confidence))}
+                  height={4}
+                  rx={2}
+                  fill={color}
+                />
 
-                <text x={x + 12} y={82} fontFamily="var(--font-mono), monospace" fontSize={8} letterSpacing="1" fill="var(--dim)">
-                  CONF {conf}%
+                <text x={x + 14} y={74} fontFamily="var(--font-mono), monospace" fontSize={9} fontWeight="600" fill={color}>
+                  {conf}% CONF
                 </text>
-                <text x={x + blockW - 12} y={82} textAnchor="end" fontFamily="var(--font-mono), monospace" fontSize={8} letterSpacing="1" fill="var(--dim)">
+                <text x={x + blockW - 14} y={74} textAnchor="end" fontFamily="var(--font-mono), monospace" fontSize={8.5} fill="var(--faint)">
                   {agent.tokensUsed} TOK
                 </text>
               </g>

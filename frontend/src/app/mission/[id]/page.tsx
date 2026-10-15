@@ -2,10 +2,9 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { ArrowLeft } from '@phosphor-icons/react/dist/ssr';
 import { MissionDashboard } from '@/components/dashboard/mission-dashboard';
-import { Topbar } from '@/components/site/topbar';
-import { Footer } from '@/components/site/footer';
 import { SkeletonPanel } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/store';
@@ -40,15 +39,24 @@ function MissionView() {
 
   if (miss) {
     return (
-      <div className="flex flex-col items-center gap-4 py-32">
-        <p className="rack-index m-0">mission not found / 410</p>
-        <p className="m-0 max-w-[34ch] text-center text-[13.5px] leading-relaxed text-[var(--dim)]">
-          This run no longer exists or its id was mistyped. The library still has the others.
+      <div className="flex flex-col items-center gap-4 py-32 text-center">
+        <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-amber-400">
+          Mission Not Found (404/410)
+        </span>
+        <h2 className="font-display text-[24px] font-bold text-white">
+          Mission Trace Expired or Missing
+        </h2>
+        <p className="m-0 max-w-[40ch] text-[14px] leading-relaxed text-slate-400">
+          This mission execution record no longer exists or the URL identifier is invalid. You can explore saved runs in the archive.
         </p>
-        <div className="flex gap-3">
-          <a href="/history" className="ghost items-center gap-2 px-4 py-2 text-[12px] no-underline">
-            <ArrowLeft size={13} aria-hidden /> Run library
-          </a>
+        <div className="mt-2 flex gap-3">
+          <Link
+            href="/history"
+            className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-5 py-2.5 text-[13px] font-medium text-white transition-all hover:bg-white/10"
+          >
+            <ArrowLeft size={14} />
+            <span>Return to Run Library</span>
+          </Link>
         </div>
       </div>
     );
@@ -56,9 +64,9 @@ function MissionView() {
 
   if (!initial) {
     return (
-      <div className="flex flex-col gap-4 pb-16 pt-10">
-        <div className="skeleton h-6 w-2/5" />
-        <div className="grid gap-4 lg:grid-cols-[300px_1fr_340px]">
+      <div className="flex flex-col gap-6 pb-20 pt-8">
+        <div className="h-10 w-1/3 rounded-2xl bg-white/[0.04] animate-pulse" />
+        <div className="grid gap-6 lg:grid-cols-[310px_1fr_330px]">
           <SkeletonPanel />
           <SkeletonPanel />
           <SkeletonPanel />
@@ -73,13 +81,9 @@ function MissionView() {
 export default function MissionPage() {
   return (
     <Suspense fallback={null}>
-      <div className="flex min-h-screen flex-col">
-        <Topbar />
-        <main id="main" className="mx-auto w-full max-w-[1160px] flex-1 px-5">
-          <MissionView />
-        </main>
-        <Footer />
-      </div>
+      <main id="main" className="mx-auto w-full max-w-[1180px] flex-1 px-4 sm:px-6">
+        <MissionView />
+      </main>
     </Suspense>
   );
 }

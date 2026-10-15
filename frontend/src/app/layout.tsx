@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Archivo, IBM_Plex_Mono } from 'next/font/google';
+import { Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme/theme-provider';
 import { themeScript } from '@/components/theme/theme-script';
 import { ToastProvider } from '@/components/ui/toast';
@@ -8,40 +8,40 @@ import { Topbar } from '@/components/site/topbar';
 import { Footer } from '@/components/site/footer';
 import './globals.css';
 
-const display = Archivo({
+const display = Plus_Jakarta_Sans({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800', '900'],
+  weight: ['400', '500', '600', '700', '800'],
   variable: '--font-display',
   display: 'swap',
 });
 
-const mono = IBM_Plex_Mono({
+const mono = JetBrains_Mono({
   subsets: ['latin'],
-  weight: ['400', '500', '600'],
+  weight: ['400', '500', '600', '700'],
   variable: '--font-mono',
   display: 'swap',
 });
 
 export const metadata: Metadata = {
   title: {
-    default: 'SWARM — Deploy a swarm. Watch it think.',
-    template: '%s · SWARM',
+    default: 'SWARM — Autonomous Multi-Agent Synthesis Workbench',
+    template: '%s · SWARM Intelligence',
   },
   description:
-    'SWARM is a mission-control workbench for coordinating AI agents: live reasoning streams, telemetry, knowledge graphs and final reports.',
+    'Enterprise orchestration platform for autonomous AI agent collectives. Continuous live reasoning streams, adversarial red-teaming, knowledge graph extraction, and audit-grade verdicts.',
   metadataBase: new URL('https://swarm-web-two.vercel.app'),
   openGraph: {
-    title: 'SWARM — Deploy a swarm. Watch it think.',
+    title: 'SWARM — Autonomous Multi-Agent Synthesis Workbench',
     description:
-      'A mission-control workbench for AI agent swarms: live reasoning streams, telemetry, knowledge graphs and final reports.',
+      'Orchestrate specialized AI agent collectives to dissect complex briefs, stress-test hypotheses, and converge on audit-grade decisions in real time.',
     type: 'website',
   },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f2eff0' },
-    { media: '(prefers-color-scheme: dark)', color: '#191716' },
+    { media: '(prefers-color-scheme: light)', color: '#f8fafc' },
+    { media: '(prefers-color-scheme: dark)', color: '#080a0f' },
   ],
 };
 
@@ -51,7 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript() }} />
       </head>
-      <body>
+      <body className="flex min-h-screen flex-col font-display antialiased">
         <ThemeProvider>
           <ToastProvider>
             <SkipLink />

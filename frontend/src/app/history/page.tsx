@@ -4,16 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Funnel,
   GitBranch,
   MagnifyingGlass,
+  RocketLaunch,
   ShareNetwork,
-  SortAscending,
   Trash,
   X,
 } from '@phosphor-icons/react/dist/ssr';
-import { Topbar } from '@/components/site/topbar';
-import { Footer } from '@/components/site/footer';
 import { EmptyState, StatusDot } from '@/components/ui';
 import { SkeletonTable } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
@@ -26,17 +23,17 @@ type StatusFilter = 'all' | 'complete' | 'running' | 'failed';
 type SortKey = 'newest' | 'oldest' | 'tokens' | 'duration';
 
 const STATUS_OPTIONS: Array<{ key: StatusFilter; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'complete', label: 'Complete' },
-  { key: 'running', label: 'In flight' },
+  { key: 'all', label: 'All Executions' },
+  { key: 'complete', label: 'Converged' },
+  { key: 'running', label: 'In Flight' },
   { key: 'failed', label: 'Failed' },
 ];
 
 const SORT_OPTIONS: Array<{ key: SortKey; label: string }> = [
-  { key: 'newest', label: 'Newest' },
-  { key: 'oldest', label: 'Oldest' },
+  { key: 'newest', label: 'Newest First' },
+  { key: 'oldest', label: 'Oldest First' },
   { key: 'duration', label: 'Duration' },
-  { key: 'tokens', label: 'Tokens' },
+  { key: 'tokens', label: 'Token Volume' },
 ];
 
 function durationOf(m: MissionSummaryDto): number {
@@ -61,7 +58,7 @@ export default function HistoryPage() {
     api
       .listMissions()
       .then((r) => setMissions(r.data.filter((m) => m.id !== 'roster')))
-      .catch((e) => setError(e instanceof Error ? e.message : 'load failed'));
+      .catch((e) => setError(e instanceof Error ? e.message : 'Load failed'));
   };
 
   useEffect(() => {
@@ -71,14 +68,14 @@ export default function HistoryPage() {
   }, []);
 
   const del = async (id: string) => {
-    if (!window.confirm('Delete this mission and its full trace?')) return;
+    if (!window.confirm('Delete this mission snapshot and its complete reasoning trace?')) return;
     setBusyId(id);
     try {
       await api.deleteMission(id);
       setMissions((m) => (m ? m.filter((x) => x.id !== id) : m));
-      toast.push('Mission and trace deleted.', 'ok');
+      toast.push('Mission trace purged.', 'ok');
     } catch {
-      toast.push('Delete failed — try again.', 'bad');
+      toast.push('Deletion failed. Please retry.', 'bad');
     } finally {
       setBusyId(null);
     }
@@ -89,9 +86,9 @@ export default function HistoryPage() {
       const result = await api.shareMission(id);
       const url = `${window.location.origin}/shared/${result.data.token}`;
       const ok = await copyText(url);
-      toast.push(ok ? 'Share link copied to clipboard.' : url, ok ? 'ok' : 'info');
+      toast.push(ok ? 'Read-only share link copied to clipboard.' : url, ok ? 'ok' : 'info');
     } catch {
-      toast.push('Could not create a share link.', 'bad');
+      toast.push('Failed to generate share link.', 'bad');
     }
   };
 
@@ -104,23 +101,18 @@ export default function HistoryPage() {
       return (
         m.name.toLowerCase().includes(q) ||
         m.prompt.toLowerCase().includes(q) ||
-        m.id.toLowerCase().includes(q) ||
-        m.template.toLowerCase().includes(q)
+        m.template.toLowerCase().includes(q) ||
+        m.id.toLowerCase().includes(q)
       );
     });
-    const sorted = [...list].sort((a, b) => {
-      switch (sort) {
-        case 'oldest':
-          return new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime();
-        case 'tokens':
-          return b.totalTokens - a.totalTokens;
-        case 'duration':
-          return durationOf(b) - durationOf(a);
-        default:
-          return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime();
-      }
+
+    return [...list].sort((a, b) => {
+      if (sort === 'newest') return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime();
+      if (sort === 'oldest') return new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime();
+      if (sort === 'tokens') return b.totalTokens - a.totalTokens;
+      if (sort === 'duration') return durationOf(b) - durationOf(a);
+      return 0;
     });
-    return sorted;
   }, [missions, query, status, sort]);
 
   const clearFilters = () => {
@@ -132,55 +124,69 @@ export default function HistoryPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <main id="main" className="mx-auto w-full max-w-[1000px] flex-1 px-5 pb-16">
-        <div className="flex items-end justify-between gap-4 border-b border-[var(--line)] pb-4 pt-10">
+      <main id="main" className="mx-auto w-full max-w-[1100px] flex-1 px-4 sm:px-6 pb-20 pt-8">
+        {/* Page Header */}
+        <div className="flex flex-col gap-4 border-b border-[var(--line)] pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="rack-index m-0">run archive · persisted to blob storage</p>
-            <h1 className="font-display m-0 mt-2 text-[26px] font-black uppercase tracking-[0.06em] text-[var(--ink)]">Run library</h1>
+            <span className="font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--faint)]">
+              Audit Archive · Persistent Telemetry
+            </span>
+            <h1 className="font-display mt-2 text-[30px] font-extrabold tracking-tight text-[var(--ink)] sm:text-[36px]">
+              Mission Execution Library
+            </h1>
+            <p className="mt-1 text-[14px] text-[var(--dim)]">
+              Comprehensive log of all autonomous multi-agent runs, consensus reports, and telemetry.
+            </p>
           </div>
-          <Link href="/" className="ghost px-4 py-2 text-[12px] no-underline">
-            Launch new
+          <Link
+            href="/#launcher"
+            className="flex items-center gap-2 rounded-lg bg-[var(--ink)] px-5 py-2.5 text-[13px] font-semibold text-[var(--paper)] transition-opacity hover:opacity-90 active:scale-95 no-underline"
+          >
+            <RocketLaunch size={15} weight="bold" />
+            <span>Dispatch New Swarm</span>
           </Link>
         </div>
 
         {error && (
-          <div className="mt-6 flex items-center justify-between gap-4 border border-[var(--bad)] px-3 py-2">
-            <p className="font-mono m-0 text-[12px] text-[var(--bad)]">{error}</p>
-            <button type="button" onClick={load} className="ghost px-2.5 py-1 text-[10px]">
-              retry
+          <div className="mt-6 flex items-center justify-between rounded-xl border border-rose-500/20 bg-rose-500/[0.05] p-4">
+            <p className="font-mono m-0 text-[13px] text-rose-500">{error}</p>
+            <button type="button" onClick={load} className="ghost px-3 py-1 text-[11px]">
+              Retry
             </button>
           </div>
         )}
 
-        {/* toolbar */}
-        <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="relative lg:max-w-[320px] lg:flex-1">
-            <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--faint)]" aria-hidden />
+        {/* Search & Filter Toolbar */}
+        <div className="mt-8 flex flex-col gap-3.5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative lg:max-w-[340px] lg:flex-1">
+            <MagnifyingGlass
+              size={14}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--faint)]"
+              aria-hidden
+            />
             <input
               ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Filter by name, prompt, id…"
-              className="field w-full py-2 pl-9 pr-8 text-[13.5px] text-[var(--ink)] outline-none"
+              placeholder="Filter missions by brief or query..."
+              className="field w-full rounded-full py-2.5 pl-10 pr-9 text-[13.5px] text-[var(--ink)] bg-[var(--paper-2)] border border-[var(--line)] placeholder:text-[var(--faint)] outline-none"
               aria-label="Search missions"
-            />
+            >
+            </input>
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery('')}
                 aria-label="Clear search"
-                className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer border-0 bg-transparent p-1 text-[var(--faint)] hover:text-[var(--signal)]"
+                className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer border-0 bg-transparent p-1 text-[var(--faint)] hover:text-[var(--ink)]"
               >
                 <X size={13} aria-hidden />
               </button>
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="hidden items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--faint)] sm:flex">
-              <Funnel size={11} aria-hidden /> status
-            </span>
-            <div className="segmented" role="group" aria-label="Filter by status">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="segmented">
               {STATUS_OPTIONS.map((o) => (
                 <button
                   key={o.key}
@@ -193,18 +199,15 @@ export default function HistoryPage() {
               ))}
             </div>
 
-            <div className="flex items-center gap-1.5">
-              <span className="hidden items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--faint)] sm:flex">
-                <SortAscending size={11} aria-hidden /> sort
-              </span>
+            <div className="flex items-center gap-2">
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortKey)}
-                className="field cursor-pointer px-2 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.1em] text-[var(--dim)] outline-none"
+                className="field cursor-pointer rounded-full px-3.5 py-1.5 font-mono text-[11px] text-[var(--ink)] bg-[var(--paper-2)] border border-[var(--line)] outline-none"
                 aria-label="Sort missions"
               >
                 {SORT_OPTIONS.map((o) => (
-                  <option key={o.key} value={o.key} className="bg-[var(--field)] text-[var(--ink)]">
+                  <option key={o.key} value={o.key} className="bg-[var(--paper)] text-[var(--ink)]">
                     {o.label}
                   </option>
                 ))}
@@ -213,26 +216,32 @@ export default function HistoryPage() {
           </div>
         </div>
 
-        {visible === null && <div className="mt-4 border border-[var(--line)] bg-[var(--paper-2)]"><SkeletonTable rows={5} /></div>}
+        {/* Loading state */}
+        {visible === null && (
+          <div className="mt-6 rounded-2xl border border-[var(--line)] bg-[var(--paper-2)] p-6">
+            <SkeletonTable rows={5} />
+          </div>
+        )}
 
+        {/* Empty state */}
         {visible !== null && visible.length === 0 && (
-          <div className="mt-4 border border-[var(--line)] bg-[var(--paper-2)]">
+          <div className="mt-6 rounded-2xl border border-[var(--line)] bg-[var(--paper-2)] p-12 text-center">
             <EmptyState
-              icon={<GitBranch size={20} aria-hidden />}
-              title={query || status !== 'all' ? 'No runs match these filters' : 'No missions yet'}
+              icon={<GitBranch size={24} className="text-[var(--dim)]" />}
+              title={query || status !== 'all' ? 'No missions match criteria' : 'No mission executions recorded yet'}
               body={
                 query || status !== 'all'
-                  ? 'Try a different search term or clear the filters.'
-                  : 'The launch pad is waiting — brief the swarm and your first run lands here.'
+                  ? 'Try expanding search parameters or reset the active filter.'
+                  : 'Launch your first mission collective to start building an audit-grade intelligence library.'
               }
               action={
                 query || status !== 'all' ? (
-                  <button onClick={clearFilters} className="ghost px-3 py-1.5 text-[11px]">
-                    Clear filters
+                  <button onClick={clearFilters} className="ghost px-4 py-2 text-[12px]">
+                    Reset Filters
                   </button>
                 ) : (
-                  <Link href="/" className="key px-4 py-2 text-[11.5px] no-underline">
-                    Launch a mission
+                  <Link href="/#launcher" className="key px-5 py-2.5 text-[13px] no-underline">
+                    Deploy Swarm
                   </Link>
                 )
               }
@@ -240,68 +249,89 @@ export default function HistoryPage() {
           </div>
         )}
 
+        {/* Missions Feed */}
         {visible !== null && visible.length > 0 && (
-          <>
-            <p className="font-mono mt-6 text-[10px] uppercase tracking-[0.14em] text-[var(--faint)]">
-              {visible.length} run{visible.length === 1 ? '' : 's'} shown
+          <div className="mt-6 space-y-3">
+            <p className="font-mono text-[11px] text-[var(--faint)]">
+              Showing {visible.length} execution{visible.length === 1 ? '' : 's'}
             </p>
-            <ul className="mt-2 list-none border border-[var(--line)] bg-[var(--paper-2)]">
-              {visible.map((m, i) => {
+
+            <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper-2)] divide-y divide-[var(--line)] overflow-hidden shadow-sm">
+              {visible.map((m) => {
                 const color = statusColor(m.status);
                 const dur = durationOf(m);
                 return (
-                  <li key={m.id} className="group flex items-center gap-2 border-b border-[var(--line)] px-3 transition-colors last:border-0 hover:bg-[var(--paper-3)]">
-                    <span className="rack-index w-7 shrink-0">{String(i + 1).padStart(2, '0')}</span>
+                  <div
+                    key={m.id}
+                    className="group flex items-center justify-between gap-4 p-4 transition-colors hover:bg-[var(--paper-3)]/40"
+                  >
                     <button
+                      type="button"
                       onClick={() => router.push(`/mission/${m.id}`)}
-                      className="flex min-w-0 flex-1 cursor-pointer items-center gap-4 border-0 bg-transparent p-0 py-3 text-left"
-                      aria-label={`Open ${m.name}`}
+                      className="flex min-w-0 flex-1 cursor-pointer items-center gap-4 text-left border-0 bg-transparent p-0"
                     >
-                      <span className="hidden shrink-0 sm:block">
+                      <span className="flex h-3 w-3 shrink-0 items-center justify-center">
                         <StatusDot color={color} live={!m.completedAt} />
                       </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="font-display block truncate text-[13.5px] font-bold tracking-[0.02em] text-[var(--ink)]">{m.name}</span>
-                        <span className="font-mono block truncate text-[10.5px] text-[var(--faint)]">{m.prompt}</span>
-                      </span>
-                      <span className="font-mono hidden w-32 text-right text-[10.5px] uppercase tracking-[0.1em] text-[var(--faint)] lg:block">
-                        {m.template.split('_').join(' ')}
-                      </span>
-                      <span className="font-mono hidden w-20 text-right text-[10.5px] text-[var(--dim)] sm:block">
-                        {dur !== 0 ? formatDuration(dur) : formatRelative(m.startedAt)}
-                      </span>
-                      <span className="font-mono w-16 text-right text-[10.5px] text-[var(--dim)]">{m.totalTokens} tok</span>
-                      <span className="font-mono w-24 text-right text-[10.5px] uppercase tracking-[0.12em]" style={{ color }}>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-display truncate text-[14.5px] font-bold text-[var(--ink)]">
+                            {m.name}
+                          </span>
+                          <span className="rounded-full bg-[var(--paper-3)] border border-[var(--line)] px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-wider text-[var(--faint)]">
+                            {m.template.split('_').join(' ')}
+                          </span>
+                        </div>
+                        <p className="m-0 mt-1 truncate font-mono text-[11px] text-[var(--dim)]">
+                          {m.prompt}
+                        </p>
+                      </div>
+
+                      <div className="hidden sm:flex flex-col items-end shrink-0">
+                        <span className="font-mono text-[12px] font-semibold text-[var(--ink)]">
+                          {m.totalTokens.toLocaleString()} tokens
+                        </span>
+                        <span className="font-mono text-[10px] text-[var(--faint)]">
+                          {dur !== 0 ? formatDuration(dur) : formatRelative(m.startedAt)}
+                        </span>
+                      </div>
+
+                      <span
+                        className="hidden md:inline-flex rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider border border-[var(--line)] bg-[var(--paper-3)] text-[var(--ink)]"
+                      >
                         {m.status}
                       </span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => void share(m.id)}
-                      aria-label="Copy share link"
-                      title="Copy share link"
-                      className="btn-icon !h-7 !w-7 shrink-0 !border-0 !bg-transparent"
-                    >
-                      <ShareNetwork size={13} aria-hidden />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void del(m.id)}
-                      disabled={busyId === m.id}
-                      aria-label="Delete mission"
-                      title="Delete mission"
-                      className="btn-icon !h-7 !w-7 shrink-0 !border-0 !bg-transparent hover:!text-[var(--bad)]"
-                    >
-                      <Trash size={13} aria-hidden />
-                    </button>
-                  </li>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => void share(m.id)}
+                        aria-label="Share link"
+                        title="Copy shareable link"
+                        className="btn-icon"
+                      >
+                        <ShareNetwork size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void del(m.id)}
+                        disabled={busyId === m.id}
+                        aria-label="Purge trace"
+                        title="Purge mission trace"
+                        className="btn-icon hover:!text-rose-500"
+                      >
+                        <Trash size={14} />
+                      </button>
+                    </div>
+                  </div>
                 );
               })}
-            </ul>
-          </>
+            </div>
+          </div>
         )}
       </main>
-      <Footer />
     </div>
   );
 }

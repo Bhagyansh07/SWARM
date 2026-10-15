@@ -1,10 +1,9 @@
 'use client';
 
-import { Check, Copy } from '@phosphor-icons/react/dist/ssr';
-import { formatDuration } from '@/lib/hooks';
+import { useState } from 'react';
+import { Check, Copy, FileText, ShieldWarning, Sparkle } from '@phosphor-icons/react/dist/ssr';
 import { copyText, reportMarkdown, type ExportInput } from '@/lib/export';
 import type { LiveAnalytics, LiveReport } from '@/lib/store';
-import { useState } from 'react';
 
 export function ReportPanel({
   report,
@@ -19,9 +18,12 @@ export function ReportPanel({
 
   if (!report) {
     return (
-      <p className="font-mono m-0 px-4 py-14 text-center text-[11px] uppercase tracking-[0.18em] text-[var(--faint)]">
-        no report yet — the synthesizer is still converging…
-      </p>
+      <div className="py-24 text-center">
+        <Sparkle size={32} className="mx-auto text-cyan-400 animate-pulse" />
+        <p className="font-mono mt-4 text-[12px] uppercase tracking-wider text-[var(--faint)]">
+          Synthesis in flight · Awaiting convergence from Agent Nova...
+        </p>
+      </div>
     );
   }
 
@@ -35,81 +37,106 @@ export function ReportPanel({
   };
 
   return (
-    <div className="space-y-5 px-4 py-4">
-      <div className="no-print flex items-center justify-between gap-3">
-        <span className="rack-index">final synthesis · ready to export</span>
+    <div className="space-y-6 p-5">
+      {/* Header bar */}
+      <div className="no-print flex items-center justify-between border-b border-white/[0.06] pb-3">
+        <div className="flex items-center gap-2">
+          <span className="flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]" />
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-slate-300">
+            Converged Executive Report
+          </span>
+        </div>
+
         {exportData && (
           <button
             type="button"
             onClick={() => void copyMarkdown()}
-            className="ghost px-3 py-1.5 text-[10px]"
-            aria-label="Copy report as Markdown"
+            className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 font-mono text-[11px] text-slate-200 transition-all hover:bg-white/10 cursor-pointer"
           >
             {copied ? (
               <>
-                <Check size={12} aria-hidden /> copied
+                <Check size={12} className="text-emerald-400" />
+                <span>Copied</span>
               </>
             ) : (
               <>
-                <Copy size={12} aria-hidden /> copy markdown
+                <Copy size={12} />
+                <span>Copy Markdown</span>
               </>
             )}
           </button>
         )}
       </div>
 
-      <div className="border-l-2 border-[var(--signal)] bg-[var(--signal-dim)] py-3 pl-4 pr-4">
-        <p className="font-mono m-0 text-[9.5px] uppercase tracking-[0.18em] text-[var(--signal)]">Verdict</p>
-        <p className="font-display m-0 mt-1.5 text-[15px] font-bold leading-relaxed text-[var(--ink)]">{report.verdict}</p>
+      {/* Primary Verdict Card */}
+      <div className="relative overflow-hidden rounded-2xl border border-cyan-500/40 bg-gradient-to-br from-cyan-950/40 via-sky-950/30 to-[#0c101a] p-5 shadow-[0_0_30px_rgba(0,210,255,0.12)]">
+        <div className="flex items-center gap-2">
+          <Sparkle size={16} className="text-cyan-400" weight="fill" />
+          <span className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-cyan-400">
+            Official Verdict
+          </span>
+        </div>
+        <p className="font-display mt-2 text-[17px] font-bold leading-relaxed text-white">
+          {report.verdict}
+        </p>
       </div>
 
+      {/* Summary */}
       {report.summary && (
-        <section>
-          <h4 className="font-mono m-0 text-[10px] uppercase tracking-[0.18em] text-[var(--faint)]">Summary</h4>
-          <p className="m-0 mt-2 text-[13px] leading-relaxed text-[var(--dim)]">{report.summary}</p>
+        <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+          <h4 className="font-mono m-0 text-[10.5px] font-semibold uppercase tracking-wider text-slate-400">
+            Executive Summary
+          </h4>
+          <p className="m-0 mt-2 text-[14px] leading-relaxed text-slate-300">
+            {report.summary}
+          </p>
         </section>
       )}
 
+      {/* Key Findings */}
       {report.keyFindings.length > 0 && (
-        <section>
-          <h4 className="font-mono m-0 text-[10px] uppercase tracking-[0.18em] text-[var(--faint)]">Key findings</h4>
-          <ul className="m-0 mt-2 list-none">
+        <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+          <h4 className="font-mono m-0 text-[10.5px] font-semibold uppercase tracking-wider text-emerald-400">
+            Key Verified Findings ({report.keyFindings.length})
+          </h4>
+          <ul className="m-0 mt-3 list-none divide-y divide-white/[0.04]">
             {report.keyFindings.map((f, i) => (
-              <li key={i} className="flex items-baseline gap-3 border-b border-[var(--line)] py-1.5 last:border-0">
-                <span className="font-mono text-[10px] text-[var(--signal)]">{String(i + 1).padStart(2, '0')}</span>
-                <span className="text-[13px] leading-snug text-[var(--dim)]">{f}</span>
+              <li key={i} className="flex items-baseline gap-3 py-2.5 first:pt-0 last:pb-0">
+                <span className="font-mono text-[11px] font-bold text-emerald-400">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <span className="text-[13.5px] leading-relaxed text-slate-300">
+                  {f}
+                </span>
               </li>
             ))}
           </ul>
         </section>
       )}
 
+      {/* Risks & Unresolved Dissent */}
       {report.risks.length > 0 && (
-        <section>
-          <h4 className="font-mono m-0 text-[10px] uppercase tracking-[0.18em] text-[var(--faint)]">Risks</h4>
-          <ul className="m-0 mt-2 list-none">
+        <section className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.03] p-5">
+          <div className="flex items-center gap-2">
+            <ShieldWarning size={16} className="text-amber-400" weight="fill" />
+            <h4 className="font-mono m-0 text-[10.5px] font-semibold uppercase tracking-wider text-amber-400">
+              Identified Risks & Preserved Dissent ({report.risks.length})
+            </h4>
+          </div>
+          <ul className="m-0 mt-3 list-none divide-y divide-amber-500/10">
             {report.risks.map((f, i) => (
-              <li key={i} className="flex items-baseline gap-3 border-b border-[var(--line)] py-1.5 last:border-0">
-                <span className="font-mono text-[10px] text-[var(--warn)]">{String(i + 1).padStart(2, '0')}</span>
-                <span className="text-[13px] leading-snug text-[var(--dim)]">{f}</span>
+              <li key={i} className="flex items-baseline gap-3 py-2.5 first:pt-0 last:pb-0">
+                <span className="font-mono text-[11px] font-bold text-amber-400">
+                  !
+                </span>
+                <span className="text-[13.5px] leading-relaxed text-amber-200/90">
+                  {f}
+                </span>
               </li>
             ))}
           </ul>
         </section>
       )}
-
-      <div className="grid gap-px border border-[var(--line)] bg-[var(--line)] sm:grid-cols-3">
-        {[
-          ['duration', formatDuration(analytics?.durationMs ?? 0)],
-          ['tokens', String(analytics?.totalTokens ?? 0)],
-          ['est. cost', analytics ? `$${analytics.estCostUsd.toFixed(5)}` : '—'],
-        ].map(([k, v]) => (
-          <div key={k} className="bg-[var(--paper)] p-2.5">
-            <span className="rack-index block">{k}</span>
-            <span className="font-mono block pt-1 text-[13px] text-[var(--ink)]">{v}</span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

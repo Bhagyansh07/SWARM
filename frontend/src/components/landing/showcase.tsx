@@ -1,5 +1,16 @@
+'use client';
+
+import { useState } from 'react';
 import { Panel } from '../ui';
-import { GlyphCore } from '../glyphs';
+import {
+  CaretDown,
+  CaretUp,
+  CheckCircle,
+  FileText,
+  Pulse,
+  ShieldCheck,
+  ShieldWarning,
+} from '@phosphor-icons/react/dist/ssr';
 
 export function ArrowNote({
   label,
@@ -11,158 +22,307 @@ export function ArrowNote({
   className?: string;
 }) {
   return (
-    <div className={`pointer-events-none absolute ${align === 'left' ? 'right-full' : 'left-full'} top-1/2 hidden w-[210px] -translate-y-1/2 lg:block ${align === 'left' ? 'mr-5 text-right' : 'ml-5'} ${className}`}>
+    <div
+      className={`pointer-events-none absolute ${
+        align === 'left' ? 'right-full' : 'left-full'
+      } top-1/2 hidden w-[210px] -translate-y-1/2 lg:block ${
+        align === 'left' ? 'mr-5 text-right' : 'ml-5'
+      } ${className}`}
+    >
       <p className="font-mono m-0 text-[11px] leading-relaxed text-[var(--dim)]">{label}</p>
-      <svg viewBox="0 0 40 24" className="glyph mt-1 inline-block h-6 w-10" style={{ transform: align === 'left' ? 'scaleX(-1)' : undefined }}>
-        <path d="M2 12h30" />
-        <path d="m24 5 9 7-9 7" />
+      <svg
+        viewBox="0 0 40 24"
+        className="mt-1 inline-block h-6 w-10 text-[var(--dim)]"
+        style={{ transform: align === 'left' ? 'scaleX(-1)' : undefined }}
+      >
+        <path d="M2 12h30" stroke="currentColor" fill="none" strokeWidth="1.5" />
+        <path d="m24 5 9 7-9 7" stroke="currentColor" fill="none" strokeWidth="1.5" />
       </svg>
     </div>
   );
 }
 
-const GEN: Record<string, { tag: string; color: string }> = {
-  evidence: { tag: 'EVIDENCE', color: 'var(--signal)' },
-  critique: { tag: 'ATTACK', color: 'var(--warn)' },
-  thought: { tag: 'SIGNAL', color: 'var(--ok)' },
-  synthesis: { tag: 'VERDICT', color: 'var(--signal)' },
-};
+interface StreamEvent {
+  agent: string;
+  role: string;
+  phase: string;
+  text: string;
+  time: string;
+  status: string;
+  latency: string;
+  citations: string[];
+  proofHash: string;
+}
+
+const STREAM_ITEMS: StreamEvent[] = [
+  {
+    agent: 'Kai',
+    role: 'Researcher',
+    phase: 'Empirical Evidence',
+    text: 'Cites Node.js libuv threadpool benchmarks: Mutex locks block asynchronous event loop workers under concurrent tensor dispatch.',
+    time: '14:22:04.18',
+    status: 'Verified',
+    latency: '142ms on Groq LPU',
+    citations: ['libuv Event Loop Spec v1.48', 'Node.js Threadpool Architecture Doc'],
+    proofHash: '0x8f4a2b919d701e83f5c71b69f8849c',
+  },
+  {
+    agent: 'Vex',
+    role: 'Adversarial Critic',
+    phase: 'Stress-Test Attack',
+    text: 'Identifies lock-convoy race condition: Thread starvation cascades into memory exhaustion at 8,200 concurrent webhook workers.',
+    time: '14:22:05.42',
+    status: 'Flagged',
+    latency: '158ms on Groq LPU',
+    citations: ['Concurrency Collapse Benchmark v2.1', 'Deadlock Detection Trace'],
+    proofHash: '0xb104ef937a06d214c7719f20e4912a',
+  },
+  {
+    agent: 'Lyra',
+    role: 'Quantitative Analyst',
+    phase: 'Bayesian Calibration',
+    text: 'Recalibrates production risk: P(Service Collapse) elevated to 88.4%. Recommended mitigation: zero-copy ring buffer architecture.',
+    time: '14:22:07.09',
+    status: 'Calibrated',
+    latency: '135ms on Groq LPU',
+    citations: ['Bayesian Reliability Matrix', 'Queue Saturation Modeling RFC'],
+    proofHash: '0x49c8192a8e71b59012f46d819e9921',
+  },
+  {
+    agent: 'Nova',
+    role: 'Executive Synthesizer',
+    phase: 'Consensus Resolution',
+    text: 'Reconciles peer claims: Mandates zero-copy atomic ring buffer with spin-locks. Preserves minority latency trade-off in audit memo.',
+    time: '14:22:08.91',
+    status: 'Resolved',
+    latency: '188ms on Groq LPU',
+    citations: ['EU AI Act Art. 14 Trace Manifest', 'Executive Action Directive v4'],
+    proofHash: '0x9e8841a029c7b1149e8310f88214de',
+  },
+];
 
 export function ReasoningStreamFrame() {
-  const items = [
-    { agent: 'AGT-01/KAI', kind: 'evidence', text: 'Claim: the retail layer is consolidating faster than the logistics that serve it.' },
-    { agent: 'AGT-03/VEX', kind: 'critique', text: 'Attack: that assumes inventory data is shareable — it is the moat, not the seam.' },
-    { agent: 'AGT-02/LYRA', kind: 'thought', text: 'Signal weighted at 71%. Secondary source, single geography, still directional.' },
-    { agent: 'AGT-04/NOVA', kind: 'synthesis', text: 'Verdict: real but mispriced — the swarm converges with one dissent unresolved.' },
-  ];
+  const [filter, setFilter] = useState<'all' | 'Kai' | 'Vex' | 'Lyra' | 'Nova'>('all');
+  const [expanded, setExpanded] = useState<number | null>(null);
+
+  const filtered = filter === 'all' ? STREAM_ITEMS : STREAM_ITEMS.filter((it) => it.agent === filter);
+
   return (
-    <Panel title="Reasoning stream" index="SAC.01" right={<span className="led led-live" aria-hidden style={{ background: 'var(--ok)', boxShadow: '0 0 6px var(--ok)' }} />}>
-      <ol className="m-0 list-none">
-        {items.map((it, i) => (
-          <li key={i} className="flex gap-3 border-b border-[var(--line)] px-4 py-2.5 last:border-0">
-            <span className="font-mono pt-0.5 text-[10px] text-[var(--faint)]">{String(i + 1).padStart(2, '0')}</span>
-            <div className="min-w-0">
-              <p className="font-mono m-0 text-[10px] uppercase tracking-[0.12em]" style={{ color: it.agent === 'AGT-04/NOVA' ? 'var(--dim)' : 'var(--faint)' }}>
-                <span style={{ color: GEN[it.kind].color }}>{GEN[it.kind].tag}</span>
-                <span className="mx-2 opacity-40">/</span>
-                {it.agent}
+    <Panel
+      title="Audit Trail & Deliberation Trace"
+      right={
+        <span className="font-mono text-[11px] text-[var(--faint)]">
+          4 Events Logged · 0 Dropped
+        </span>
+      }
+    >
+      {/* Category Filter Pills */}
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-[var(--line)] p-3 bg-white/[0.015] backdrop-blur-md">
+        <button
+          type="button"
+          onClick={() => setFilter('all')}
+          className={`rounded-full px-3 py-1 font-mono text-[11px] font-medium transition-all cursor-pointer ${
+            filter === 'all'
+              ? 'bg-[var(--ink)] text-[var(--paper)] font-semibold shadow-xs'
+              : 'glass-pill text-[var(--dim)] hover:text-[var(--ink)]'
+          }`}
+        >
+          All Lanes ({STREAM_ITEMS.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilter('Kai')}
+          className={`rounded-full px-3 py-1 font-mono text-[11px] font-medium transition-all cursor-pointer ${
+            filter === 'Kai'
+              ? 'bg-[var(--ink)] text-[var(--paper)] font-semibold shadow-xs'
+              : 'glass-pill text-[var(--dim)] hover:text-[var(--ink)]'
+          }`}
+        >
+          Kai (Research)
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilter('Vex')}
+          className={`rounded-full px-3 py-1 font-mono text-[11px] font-medium transition-all cursor-pointer ${
+            filter === 'Vex'
+              ? 'bg-[var(--ink)] text-[var(--paper)] font-semibold shadow-xs'
+              : 'glass-pill text-[var(--dim)] hover:text-[var(--ink)]'
+          }`}
+        >
+          Vex (Critic)
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilter('Lyra')}
+          className={`rounded-full px-3 py-1 font-mono text-[11px] font-medium transition-all cursor-pointer ${
+            filter === 'Lyra'
+              ? 'bg-[var(--ink)] text-[var(--paper)] font-semibold shadow-xs'
+              : 'glass-pill text-[var(--dim)] hover:text-[var(--ink)]'
+          }`}
+        >
+          Lyra (Analyst)
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilter('Nova')}
+          className={`rounded-full px-3 py-1 font-mono text-[11px] font-medium transition-all cursor-pointer ${
+            filter === 'Nova'
+              ? 'bg-[var(--ink)] text-[var(--paper)] font-semibold shadow-xs'
+              : 'glass-pill text-[var(--dim)] hover:text-[var(--ink)]'
+          }`}
+        >
+          Nova (Synthesizer)
+        </button>
+      </div>
+
+      <div className="divide-y divide-[var(--line)]">
+        {filtered.map((it, i) => {
+          const isExp = expanded === i;
+          return (
+            <div
+              key={i}
+              onClick={() => setExpanded(isExp ? null : i)}
+              className="flex flex-col gap-2 p-4 transition-colors hover:bg-white/[0.03] cursor-pointer"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-display text-[13px] font-bold text-[var(--ink)]">
+                    {it.agent}
+                  </span>
+                  <span className="font-mono text-[10px] text-[var(--faint)]">
+                    ({it.role})
+                  </span>
+                  <span className="glass-pill rounded-full px-2 py-0.5 font-mono text-[10px] text-[var(--dim)]">
+                    {it.phase}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[10.5px] text-[var(--faint)]">
+                    {it.time}
+                  </span>
+                  {isExp ? <CaretUp size={12} /> : <CaretDown size={12} />}
+                </div>
+              </div>
+
+              <p className="m-0 text-[13px] leading-relaxed text-[var(--dim)]">
+                {it.text}
               </p>
-              <p className="m-0 pt-0.5 text-[13px] leading-snug text-[var(--ink)]">{it.text}</p>
+
+              {/* Expandable Cryptographic Telemetry Drawer */}
+              {isExp && (
+                <div className="mt-2.5 rounded-xl glass-card p-3.5 space-y-2 text-[11.5px] font-mono animate-in fade-in-up duration-200">
+                  <div className="flex items-center justify-between text-[var(--dim)]">
+                    <span>Inference Execution</span>
+                    <span className="text-[var(--ink)] font-bold">{it.latency}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[var(--dim)]">
+                    <span>Cryptographic Hash</span>
+                    <span className="text-[var(--faint)] truncate max-w-[220px]">{it.proofHash}</span>
+                  </div>
+                  <div className="pt-2 border-t border-[var(--line)]">
+                    <span className="text-[var(--faint)] block mb-1">Empirical Citations:</span>
+                    <ul className="list-disc list-inside text-[var(--ink)] space-y-0.5 m-0 p-0">
+                      {it.citations.map((c) => (
+                        <li key={c}>{c}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
             </div>
-          </li>
-        ))}
-      </ol>
+          );
+        })}
+      </div>
     </Panel>
   );
 }
 
 export function OrbitFrame() {
-  const agents = [
-    { code: 'AGT-02', role: 'ANALYST', conf: 0.72 },
-    { code: 'AGT-01', role: 'RESEARCHER', conf: 0.38 },
-    { code: 'AGT-03', role: 'CRITIC', conf: 0.21 },
-    { code: 'AGT-04', role: 'SYNTHESIZER', conf: 0.66 },
+  const lanes = [
+    { name: 'Kai', role: 'Empirical Evidence', metric: '14 Sources', status: 'Converged', pct: 94 },
+    { name: 'Vex', role: 'Adversarial Red-Team', metric: '2 Flaws Intercepted', status: 'Defended', pct: 78 },
+    { name: 'Lyra', role: 'Bayesian Probability', metric: '98.2% Confidence', status: 'Calibrated', pct: 89 },
+    { name: 'Nova', role: 'Executive Synthesis', metric: '1 Action Memo', status: 'Finalized', pct: 97 },
   ];
-  const ticks = Array.from({ length: 24 }, (_, i) => i * 15);
+
   return (
-    <Panel title="Active agents" index="ATC.02" accent right={<span className="led led-live" aria-hidden style={{ background: 'var(--signal)', boxShadow: '0 0 6px var(--signal)' }} />}>
-      <div className="flex items-center gap-5 px-4 py-4">
-        <div className="relative mx-auto aspect-square w-[190px] shrink-0">
-          <svg viewBox="-100 -100 200 200" className="h-full w-full">
-            {ticks.map((a) => {
-              const rad = (a * Math.PI) / 180;
-              const major = a % 45 === 0;
-              const r1 = 88;
-              const r2 = major ? 82 : 85;
-              return <line key={a} x1={Math.cos(rad) * r2} y1={Math.sin(rad) * r2} x2={Math.cos(rad) * r1} y2={Math.sin(rad) * r1} stroke="var(--faint)" strokeWidth={major ? 1 : 0.6} opacity={major ? 0.9 : 0.5} />;
-            })}
-            <circle r="60" fill="none" stroke="var(--line-strong)" strokeWidth="1" strokeDasharray="2 4" />
-            <circle r="24" fill="none" stroke="var(--line)" strokeWidth="1" />
-            {agents.map((g, i) => {
-              const rad = (i * 90 - 90) * (Math.PI / 180);
-              const x = Math.cos(rad) * 60;
-              const y = Math.sin(rad) * 60;
-              const cx = Math.cos(rad) * 98;
-              const cy = Math.sin(rad) * 98;
-              return (
-                <g key={g.code}>
-                  <line x1={x} y1={y} x2={0} y2={0} stroke="var(--line)" strokeWidth="1" strokeDasharray="2 3" opacity="0.7" />
-                  <rect x={x - 3} y={y - 3} width="6" height="6" fill={g.conf > 0.6 ? 'var(--ok)' : g.conf > 0.35 ? 'var(--signal)' : 'var(--warn)'} />
-                  <text
-                    x={cx}
-                    y={cy}
-                    textAnchor="middle"
-                    fontSize="5.2"
-                    fill="var(--dim)"
-                    fontFamily="var(--font-mono, monospace)"
-                    letterSpacing="0.06em"
-                  >
-                    {g.role}
-                  </text>
-                </g>
-              );
-            })}
-            <g stroke="var(--signal)" strokeWidth="1" transform="translate(-11 -11)">
-              <GlyphCore width={22} height={22} />
-            </g>
-          </svg>
-        </div>
-        <div className="min-w-0 flex-1 space-y-2.5">
-          {agents.map((g) => (
-            <div key={g.code} className="readout">
-              <span className="readout-label">
-                {g.code} · {g.role}
-              </span>
-              <span className="readout-value" style={{ color: g.conf > 0.6 ? 'var(--ok)' : g.conf > 0.35 ? 'var(--signal)' : 'var(--warn)' }}>
-                {Math.round(g.conf * 100)}%
+    <Panel
+      title="Consensus Health & Convergence"
+      right={
+        <span className="font-mono text-[11px] font-medium text-[var(--faint)]">
+          Audit Grade · 100%
+        </span>
+      }
+    >
+      <div className="divide-y divide-[var(--line)]">
+        {lanes.map((lane) => (
+          <div key={lane.name} className="flex flex-col gap-1.5 p-3.5 px-4.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="font-display text-[13px] font-bold text-[var(--ink)]">
+                  {lane.name}
+                </span>
+                <span className="text-[12px] text-[var(--dim)]">
+                  {lane.role}
+                </span>
+              </div>
+              <span className="glass-pill rounded-full px-2 py-0.5 font-mono text-[10px] font-medium text-[var(--dim)]">
+                {lane.status}
               </span>
             </div>
-          ))}
-          <div className="readout border-t border-[var(--line)] pt-2">
-            <span className="readout-label">model</span>
-            <span className="readout-value">qwen/qwen3.8-27b</span>
+
+            <div className="flex items-center justify-between font-mono text-[10px] text-[var(--faint)]">
+              <span>{lane.metric}</span>
+              <span>{lane.pct}% calibrated</span>
+            </div>
+
+            <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--line)]">
+              <div
+                className="h-full rounded-full bg-[var(--ink)] transition-all duration-500"
+                style={{ width: `${lane.pct}%` }}
+              />
+            </div>
           </div>
-        </div>
+        ))}
       </div>
     </Panel>
   );
 }
 
 export function GraphFrame() {
-  const nodes = [
-    { x: 20, y: 40, r: 9, label: 'market structure', kind: 'concept' },
-    { x: 72, y: 18, r: 7, label: 'liquidity', kind: 'fact' },
-    { x: 74, y: 64, r: 7, label: 'live inventory', kind: 'claim' },
-    { x: 40, y: 86, r: 8, label: 'attrition', kind: 'entity' },
-  ];
-  const kindColor: Record<string, string> = {
-    concept: 'var(--faint)',
-    fact: 'var(--ok)',
-    claim: 'var(--warn)',
-    entity: 'var(--signal)',
-  };
   return (
-    <Panel title="Knowledge graph" index="KGC.03" right={
-      <span className="rack-index">4 nodes · 5 edges</span>
-    }>
-      <div className="relative mx-auto h-[220px] w-[300px] max-w-full pb-5 pt-2">
-        <svg viewBox="0 0 100 100" className="h-full w-full">
-          <g stroke="var(--line-strong)" strokeWidth="0.4" opacity="0.8">
-            <path d="M20 40 C 45 26 60 22 72 18" />
-            <path d="M20 40 C 42 60 60 60 74 64" />
-            <path d="M20 40 C 30 70 36 82 40 86" />
-            <path d="M72 18 C 76 42 74 54 74 64" />
-            <path d="M74 64 C 60 78 50 82 40 86" />
-          </g>
-          {nodes.map((n, i) => (
-            <g key={i}>
-              <circle cx={n.x} cy={n.y} r={n.r} fill={i === 0 ? 'var(--paper-3)' : 'var(--paper-2)'} stroke={kindColor[n.kind]} strokeWidth="0.6" />
-              <text x={n.x} y={n.y + n.r + 4} textAnchor="middle" fontSize={i === 0 ? 2.4 : 2.2} fill="var(--dim)" fontFamily="var(--font-mono, monospace)">
-                {n.label}
-              </text>
-            </g>
-          ))}
-        </svg>
+    <Panel
+      title="Governance & Dissent Logging"
+      right={
+        <span className="font-mono text-[11px] font-medium text-[var(--faint)]">
+          EU AI Act Art. 14 Compliant
+        </span>
+      }
+    >
+      <div className="p-4 space-y-3">
+        <div className="flex items-start gap-3 rounded-xl glass-card p-3.5">
+          <ShieldCheck size={18} weight="bold" className="text-[var(--ink)] shrink-0 mt-0.5" />
+          <div className="text-[12.5px] leading-relaxed">
+            <span className="font-semibold text-[var(--ink)] block">
+              Immutable Minority Dissent Retention
+            </span>
+            <span className="text-[var(--dim)]">
+              Disagreements and dissenting risk evaluations are never averaged out or silenced. They are cryptographically logged in the verdict manifest.
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3 rounded-xl glass-card p-3.5">
+          <FileText size={18} weight="bold" className="text-[var(--ink)] shrink-0 mt-0.5" />
+          <div className="text-[12.5px] leading-relaxed">
+            <span className="font-semibold text-[var(--ink)] block">
+              Sub-Second Parallel Execution
+            </span>
+            <span className="text-[var(--dim)]">
+              Four models deliberate concurrently in sub-second inference passes with 100% auditable citation traces.
+            </span>
+          </div>
+        </div>
       </div>
     </Panel>
   );

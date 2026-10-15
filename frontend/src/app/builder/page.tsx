@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import ReactFlow, {
   Background,
   BackgroundVariant,
+  Handle,
   MarkerType,
+  Position,
   ReactFlowProvider,
   addEdge,
   useEdgesState,
@@ -17,13 +19,19 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { Glyph } from '@/components/glyphs';
-import { Topbar } from '@/components/site/topbar';
-import { Footer } from '@/components/site/footer';
-import { ArrowNote } from '@/components/landing/showcase';
-import { Button, FieldLabel, Textarea } from '@/components/ui';
+import { FieldLabel, Textarea } from '@/components/ui';
 import { AGENT_ROSTER } from '@/lib/types';
 import { api } from '@/lib/api';
 import type { AgentRole } from '@/lib/types';
+import {
+  CheckCircle,
+  Cpu,
+  Plus,
+  RocketLaunch,
+  Sparkle,
+  Trash,
+  WarningCircle,
+} from '@phosphor-icons/react/dist/ssr';
 
 function roleOf(node: Node): AgentRole | null {
   const r = node.data?.role as AgentRole | undefined;
@@ -34,36 +42,52 @@ function AgentNodeView({ data, selected }: NodeProps<Node>) {
   const role = roleOf(data as unknown as Node);
   const meta = role ? AGENT_ROSTER[role] : null;
   const G = meta ? Glyph[meta.avatar as keyof typeof Glyph] : undefined;
+
   return (
     <div
-      className="font-mono w-[170px] border px-3 py-2.5 text-left"
-      style={{
-        background: 'var(--paper-2)',
-        borderColor: selected ? 'var(--signal)' : 'var(--line-strong)',
-        color: 'var(--ink)',
-      }}
+      className={`relative w-[190px] rounded-2xl border p-3.5 shadow-md backdrop-blur-xl transition-all ${
+        selected
+          ? 'border-[var(--ink)] ring-2 ring-[var(--line-strong)] bg-[var(--paper-3)]'
+          : 'border-[var(--line-strong)] bg-[var(--paper-2)] hover:border-[var(--ink)]'
+      }`}
     >
-      <p className="m-0 flex items-center justify-between gap-2 text-[12px] font-semibold text-[var(--ink)]">
-        <span className="truncate">{meta?.name ?? 'agent'}</span>
-        {G ? <G width={15} height={15} /> : null}
+      <Handle type="target" position={Position.Left} className="!h-2.5 !w-2.5 !bg-[var(--ink)]" />
+      <div className="flex items-center justify-between">
+        <span className="font-display text-[13.5px] font-bold text-[var(--ink)]">
+          {meta?.name ?? 'Agent'}
+        </span>
+        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--paper-3)] text-[var(--ink)] border border-[var(--line)]">
+          {G ? <G width={14} height={14} /> : <Cpu size={14} />}
+        </span>
+      </div>
+      <p className="font-mono mt-1 text-[10px] uppercase tracking-wider text-[var(--faint)]">
+        {role ?? 'Specialist'}
       </p>
-      <p className="m-0 mt-1 text-[10px] uppercase tracking-[0.14em] text-[var(--faint)]">{role ?? ''}</p>
+      <Handle type="source" position={Position.Right} className="!h-2.5 !w-2.5 !bg-[var(--ink)]" />
     </div>
   );
 }
 
 function StartNodeView() {
   return (
-    <div className="border bg-[var(--paper-2)] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.18em]" style={{ borderColor: 'var(--ok)', color: 'var(--ok)' }}>
-      start
+    <div className="flex items-center gap-2 rounded-full border border-[var(--line-strong)] bg-[var(--paper-2)] px-4 py-2 shadow-sm">
+      <span className="h-2 w-2 rounded-full bg-[var(--ink)] animate-pulse" />
+      <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[var(--ink)]">
+        Input Brief
+      </span>
+      <Handle type="source" position={Position.Right} className="!h-2.5 !w-2.5 !bg-[var(--ink)]" />
     </div>
   );
 }
 
 function EndNodeView() {
   return (
-    <div className="border bg-[var(--paper-2)] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.18em]" style={{ borderColor: 'var(--signal)', color: 'var(--signal)' }}>
-      verdict
+    <div className="flex items-center gap-2 rounded-full border border-[var(--line-strong)] bg-[var(--paper-2)] px-4 py-2 shadow-sm">
+      <Handle type="target" position={Position.Left} className="!h-2.5 !w-2.5 !bg-[var(--ink)]" />
+      <Sparkle size={13} className="text-[var(--ink)]" weight="fill" />
+      <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[var(--ink)]">
+        Converged Verdict
+      </span>
     </div>
   );
 }
@@ -109,25 +133,55 @@ function computeOrder(nodes: Node[], edges: Edge[]): AgentRole[] | null {
 
 function BuilderCanvas() {
   const router = useRouter();
-  const [name, setName] = useState('Custom pipeline');
-  const [prompt, setPrompt] = useState('Give the swarm a mission brief.');
+  const [name, setName] = useState('Custom Multi-Agent Orchestration');
+  const [prompt, setPrompt] = useState('Investigate microservices latency bottlenecks and cross-examine root causes.');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [nodes, setNodes, onNodesChange] = useNodesState([
-    { id: 'start', type: 'start', position: { x: 40, y: 210 }, data: {} } satisfies Node,
-    { id: 'end', type: 'end', position: { x: 760, y: 210 }, data: {} } satisfies Node,
+    { id: 'start', type: 'start', position: { x: 30, y: 200 }, data: {} } satisfies Node,
+    { id: 'end', type: 'end', position: { x: 740, y: 200 }, data: {} } satisfies Node,
   ]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
-  const onConnect = useCallback((c: Connection) => setEdges((es) => addEdge({ ...c, markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--line-strong)' } }, es)), [setEdges]);
+  const onConnect = useCallback(
+    (c: Connection) =>
+      setEdges((es) =>
+        addEdge(
+          {
+            ...c,
+            markerEnd: { type: MarkerType.ArrowClosed, color: 'currentColor' },
+            style: { stroke: 'var(--ink)', strokeWidth: 1.5 },
+          },
+          es
+        )
+      ),
+    [setEdges]
+  );
 
   const addAgent = (role: AgentRole) => {
     const id = `${role}-${Date.now()}`;
     const count = nodes.filter((n) => n.type === 'agent').length;
-    setNodes((ns) => [...ns, { id, type: 'agent', position: { x: 220 + (count % 3) * 190, y: 160 + Math.floor(count / 3) * 130 }, data: { role } } satisfies Node]);
+    setNodes((ns) => [
+      ...ns,
+      {
+        id,
+        type: 'agent',
+        position: { x: 200 + (count % 3) * 190, y: 150 + Math.floor(count / 3) * 120 },
+        data: { role },
+      } satisfies Node,
+    ]);
     if (nodes.length === 2) {
-      setEdges((es) => [...es, { id: `e-start-${id}`, source: 'start', target: id, markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--line-strong)' } }]);
+      setEdges((es) => [
+        ...es,
+        {
+          id: `e-start-${id}`,
+          source: 'start',
+          target: id,
+          markerEnd: { type: MarkerType.ArrowClosed, color: 'currentColor' },
+          style: { stroke: 'var(--ink)', strokeWidth: 1.5 },
+        },
+      ]);
     }
   };
 
@@ -142,20 +196,25 @@ function BuilderCanvas() {
   const deploy = async () => {
     if (busy) return;
     if (!order || order.length < 2) {
-      setError('Pipeline needs at least two agents in a single line — no cycles, no forks.');
+      setError('Pipeline must connect at least two agents in a clear sequential line without loops.');
       return;
     }
-    if (prompt.trim().length < 3) {
-      setError('Write a mission brief first.');
+    if (prompt.trim().length < 5) {
+      setError('Please provide a substantive mission brief.');
       return;
     }
     setError(null);
     setBusy(true);
     try {
-      const res = await api.launch({ name: name.trim() || 'Custom pipeline', template: 'deep_research', prompt: prompt.trim(), config: { agents: order } });
+      const res = await api.launch({
+        name: name.trim() || 'Custom Pipeline',
+        template: 'deep_research',
+        prompt: prompt.trim(),
+        config: { agents: order },
+      });
       router.push(`/mission/${res.data.id}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Deploy failed.');
+      setError(e instanceof Error ? e.message : 'Pipeline deployment failed.');
       setBusy(false);
     }
   };
@@ -163,28 +222,41 @@ function BuilderCanvas() {
   const addable = (Object.keys(AGENT_ROSTER) as AgentRole[]).filter((r) => r !== 'orchestrator');
 
   return (
-    <div className="pb-16 pt-8 animate-in fade-in-up">
-      <div className="flex flex-col gap-3 border-b border-[var(--line)] pb-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="pb-20 pt-8 animate-in fade-in-up">
+      {/* Header */}
+      <div className="flex flex-col gap-4 border-b border-[var(--line)] pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="rack-index m-0">09 · workflow builder</p>
-          <h1 className="font-display m-0 mt-2 text-[26px] font-black uppercase tracking-[0.06em] text-[var(--ink)]">Assemble the line</h1>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--faint)]">
+            Interactive Architecture Canvas
+          </span>
+          <h1 className="font-display mt-2 text-[30px] font-extrabold tracking-tight text-[var(--ink)] sm:text-[36px]">
+            Visual Workflow Orchestration
+          </h1>
+          <p className="mt-1 text-[14px] text-[var(--dim)]">
+            Construct custom multi-agent reasoning chains by wiring specialized agents from input brief to converged verdict.
+          </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+
+        {/* Palette Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
           {addable.map((r) => (
             <button
               key={r}
+              type="button"
               onClick={() => addAgent(r)}
-              className="font-mono cursor-pointer border border-[var(--line-strong)] px-3 py-1.5 text-[11px] uppercase tracking-[0.14em] text-[var(--dim)] hover:border-[var(--signal)] hover:text-[var(--signal)]"
+              className="flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--paper-2)] px-3.5 py-1.5 font-mono text-[11px] text-[var(--ink)] transition-all hover:border-[var(--line-strong)] hover:bg-[var(--paper-3)] cursor-pointer"
             >
-              + {AGENT_ROSTER[r].name}
+              <Plus size={12} weight="bold" />
+              <span>{AGENT_ROSTER[r].name}</span>
             </button>
           ))}
         </div>
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]">
-        <div className="relative">
-          <div className="relative h-[440px] overflow-hidden border border-[var(--line)] bg-[var(--paper)]">
+      {/* Main Grid: Flow Canvas + Config Panel */}
+      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_330px]">
+        <div>
+          <div className="relative h-[480px] overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--paper)] shadow-sm">
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -194,60 +266,104 @@ function BuilderCanvas() {
               nodeTypes={nodeTypes}
               fitView
               proOptions={{ hideAttribution: true }}
-              defaultEdgeOptions={{ type: 'smoothstep', style: { stroke: 'var(--line-strong)', strokeWidth: 1 } }}
+              defaultEdgeOptions={{
+                type: 'smoothstep',
+                style: { stroke: 'var(--ink)', strokeWidth: 1.5 },
+              }}
             >
-              <Background variant={BackgroundVariant.Lines} gap={28} color="var(--grid-line)" />
+              <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--line-strong)" />
             </ReactFlow>
           </div>
-          <ArrowNote label="Add agents from the palette, then wire them start → verdict. The line order becomes the swarm’s turn order." align="right" className="top-8 hidden xl:block" />
-          <div className="flex items-center gap-3 pt-3">
+
+          {/* Node cleanup chips */}
+          <div className="flex flex-wrap items-center gap-2 pt-3">
             {agentNodes.map((n) => (
               <button
                 key={n.id}
+                type="button"
                 onClick={() => removeAgent(n.id)}
-                className="font-mono cursor-pointer border border-[var(--line)] px-2 py-1 text-[10px] uppercase tracking-wider text-[var(--faint)] hover:border-[var(--bad)] hover:text-[var(--bad)]"
+                className="flex items-center gap-1 rounded-full border border-[var(--line)] bg-[var(--paper-2)] px-2.5 py-1 font-mono text-[10px] text-[var(--dim)] transition-all hover:border-rose-500/40 hover:text-rose-500 cursor-pointer"
               >
-                remove {roleOf(n) ? AGENT_ROSTER[roleOf(n)!].name : ''}
+                <Trash size={11} />
+                <span>Remove {roleOf(n) ? AGENT_ROSTER[roleOf(n)!].name : ''}</span>
               </button>
             ))}
-            {agentNodes.length === 0 && <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--faint)]">canvas empty</span>}
+            {agentNodes.length === 0 && (
+              <span className="font-mono text-[11px] text-[var(--faint)]">
+                Click agent buttons above to add nodes to canvas.
+              </span>
+            )}
           </div>
         </div>
 
-        <div className="flex flex-col gap-4">
+        {/* Right Configuration Drawer */}
+        <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper-2)] p-6 shadow-sm flex flex-col gap-4">
           <div>
-            <FieldLabel id="pname">Mission name</FieldLabel>
+            <FieldLabel id="pname">Workflow Identifier</FieldLabel>
             <input
               id="pname"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="field w-full px-3 py-2 text-[14px] text-[var(--ink)] outline-none"
+              className="field w-full rounded-xl px-3.5 py-2 text-[14px] text-[var(--ink)] bg-[var(--paper)] border border-[var(--line)] outline-none"
             />
           </div>
+
           <div>
-            <FieldLabel id="pbrief">Mission brief</FieldLabel>
-            <Textarea id="pbrief" rows={5} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+            <FieldLabel id="pbrief">Mission Brief</FieldLabel>
+            <Textarea
+              id="pbrief"
+              rows={4}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              className="text-[13.5px] leading-relaxed"
+            />
           </div>
+
+          {/* Pipeline Verification Status */}
           <div
-            className="border px-3 py-2"
-            style={{ borderColor: order ? 'var(--line-strong)' : 'var(--bad)' }}
+            className={`rounded-2xl border p-4 transition-all ${
+              order
+                ? 'border-emerald-500/20 bg-emerald-500/[0.05]'
+                : 'border-amber-500/20 bg-amber-500/[0.05]'
+            }`}
           >
-            <p className="font-mono m-0 text-[10px] uppercase tracking-[0.18em] text-[var(--faint)]">Turn order</p>
-            <p className="font-mono mt-1.5 text-[13px] text-[var(--dim)]">
-              {order ? order.map((r) => AGENT_ROSTER[r].name).join(' → ') : 'invalid pipeline'}
+            <div className="flex items-center gap-2">
+              {order ? (
+                <CheckCircle size={15} className="text-emerald-500" weight="fill" />
+              ) : (
+                <WarningCircle size={15} className="text-amber-500" weight="fill" />
+              )}
+              <span
+                className={`font-mono text-[11px] font-bold uppercase tracking-wider ${
+                  order ? 'text-emerald-500' : 'text-amber-500'
+                }`}
+              >
+                {order ? 'Valid Sequential Line' : 'Connect Nodes in Order'}
+              </span>
+            </div>
+
+            <p className="font-mono mt-1.5 text-[12px] text-[var(--dim)]">
+              {order
+                ? order.map((r) => AGENT_ROSTER[r].name).join(' → ')
+                : 'Wire: Input Brief → Agent 1 → Agent 2 → Converged Verdict'}
             </p>
           </div>
-          {error && <p className="font-mono m-0 text-[12px] text-[var(--bad)]">{error}</p>}
-          <Button onClick={deploy} disabled={busy || !order} className="inline-flex items-center justify-center gap-2">
-            {busy ? (
-              <>
-                <span className="h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-current border-t-transparent" />
-                Deploying
-              </>
-            ) : (
-              'Deploy pipeline'
-            )}
-          </Button>
+
+          {error && (
+            <div className="rounded-xl border border-rose-500/20 bg-rose-500/[0.05] p-3 text-[12px] text-rose-500">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => void deploy()}
+            disabled={busy || !order}
+            className="key flex items-center justify-center gap-2 py-3.5 text-[13.5px] font-bold cursor-pointer disabled:opacity-40"
+          >
+            <RocketLaunch size={16} weight="bold" />
+            <span>{busy ? 'Deploying Custom Pipeline...' : 'Deploy Pipeline Collective'}</span>
+          </button>
         </div>
       </div>
     </div>
@@ -257,13 +373,9 @@ function BuilderCanvas() {
 export default function BuilderPage() {
   return (
     <ReactFlowProvider>
-      <div className="flex min-h-screen flex-col">
-        <Topbar />
-        <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-5">
-          <BuilderCanvas />
-        </main>
-        <Footer />
-      </div>
+      <main id="main" className="mx-auto w-full max-w-[1180px] flex-1 px-4 sm:px-6">
+        <BuilderCanvas />
+      </main>
     </ReactFlowProvider>
   );
 }

@@ -3,9 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { ArrowLeft } from '@phosphor-icons/react/dist/ssr';
 import { MissionDashboard } from '@/components/dashboard/mission-dashboard';
-import { Topbar } from '@/components/site/topbar';
-import { Footer } from '@/components/site/footer';
 import { SkeletonPanel } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import type { MissionDetailDto } from '@/lib/types';
@@ -23,33 +22,38 @@ export default function SharedMissionPage() {
   }, [token]);
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Topbar />
-      <main id="main" className="mx-auto w-full max-w-[1160px] flex-1 px-5">
-        {missing ? (
-          <div className="flex flex-col items-center gap-4 py-32">
-            <p className="rack-index m-0">shared mission not found / 404</p>
-            <p className="m-0 max-w-[36ch] text-center text-[13.5px] leading-relaxed text-[var(--dim)]">
-              This share link is invalid or the mission was deleted. Share links are signed — tampered tokens are rejected server-side.
-            </p>
-            <Link href="/" className="ghost px-4 py-2 text-[12px] no-underline">
-              Back to HQ
-            </Link>
+    <main id="main" className="mx-auto w-full max-w-[1180px] flex-1 px-4 sm:px-6">
+      {missing ? (
+        <div className="flex flex-col items-center gap-4 py-32 text-center">
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-rose-400">
+            Cryptographic Token Expired or Invalid (404)
+          </span>
+          <h2 className="font-display text-[24px] font-bold text-white">
+            Shared Snapshot Unreachable
+          </h2>
+          <p className="m-0 max-w-[42ch] text-[14px] leading-relaxed text-slate-400">
+            This share link signature failed verification or the mission record was purged.
+          </p>
+          <Link
+            href="/"
+            className="mt-2 flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-5 py-2.5 text-[13px] font-medium text-white transition-all hover:bg-white/10"
+          >
+            <ArrowLeft size={14} />
+            <span>Return to Overview</span>
+          </Link>
+        </div>
+      ) : mission ? (
+        <MissionDashboard initial={mission} readOnly />
+      ) : (
+        <div className="flex flex-col gap-6 pb-20 pt-8">
+          <div className="h-10 w-1/3 rounded-2xl bg-white/[0.04] animate-pulse" />
+          <div className="grid gap-6 lg:grid-cols-[310px_1fr_330px]">
+            <SkeletonPanel />
+            <SkeletonPanel />
+            <SkeletonPanel />
           </div>
-        ) : mission ? (
-          <MissionDashboard initial={mission} readOnly />
-        ) : (
-          <div className="flex flex-col gap-4 pb-16 pt-10">
-            <div className="skeleton h-6 w-2/5" />
-            <div className="grid gap-4 lg:grid-cols-[300px_1fr_340px]">
-              <SkeletonPanel />
-              <SkeletonPanel />
-              <SkeletonPanel />
-            </div>
-          </div>
-        )}
-      </main>
-      <Footer />
-    </div>
+        </div>
+      )}
+    </main>
   );
 }

@@ -13,11 +13,23 @@ import { Panel, StatusDot, Step } from '@/components/ui';
 import { formatClock, formatDuration, statusColor, useNow } from '@/lib/hooks';
 import { useSession } from '@/lib/store';
 import { toExportInput } from '@/lib/export';
+import {
+  Brain,
+  ChatCircleText,
+  Clock,
+  Coins,
+  Cpu,
+  FileText,
+  Play,
+  ShareNetwork,
+  ShieldWarning,
+  Sparkle,
+} from '@phosphor-icons/react/dist/ssr';
 
 const TABS = [
-  { key: 'stream', label: 'Live stream', index: 'STR.02' },
-  { key: 'report', label: 'Report', index: 'RPT.04' },
-  { key: 'replay', label: 'Replay', index: 'RPL.05' },
+  { key: 'stream', label: 'Reasoning Stream', icon: <ChatCircleText size={14} /> },
+  { key: 'report', label: 'Executive Report', icon: <FileText size={14} /> },
+  { key: 'replay', label: 'Playback Replay', icon: <Play size={14} /> },
 ] as const;
 
 type TabKey = (typeof TABS)[number]['key'];
@@ -41,7 +53,7 @@ export function MissionDashboard({ initial, readOnly = false }: { initial: Missi
     error,
   } = useSession();
 
-  // Prefer live session state, fall back to the initial snapshot.
+  // Prefer live session state, fall back to initial snapshot
   const detail = useMemo(() => {
     if (!initial) return null;
     return {
@@ -60,8 +72,8 @@ export function MissionDashboard({ initial, readOnly = false }: { initial: Missi
     };
   }, [initial, status, provider, model, agents, messages, nodes, edges, report, analytics]);
 
-  const activeProvider = detail?.provider ?? 'simulation';
-  const activeModel = detail?.model ?? 'deterministic-sim';
+  const activeProvider = detail?.provider ?? 'Groq LPU';
+  const activeModel = detail?.model ?? 'qwen/qwen3.8-27b';
   const effectiveStatus = (readOnly ? initial?.status ?? status : detail?.status ?? status) ?? 'connecting';
   const displayAgents = detail?.agents ?? [];
   const displayNodes = detail?.nodes ?? [];
@@ -82,101 +94,133 @@ export function MissionDashboard({ initial, readOnly = false }: { initial: Missi
   const exportData = detail ? toExportInput(detail) : null;
 
   return (
-    <div className="flex flex-col gap-4 pb-16">
-      <div className="mission-hero flex flex-col gap-5 border-b border-[var(--line)] pb-6 pt-8 lg:flex-row lg:items-end lg:justify-between">
-        <div className="no-print min-w-0 flex-1">
-          <p className="font-mono m-0 flex items-center gap-2 text-[10.5px] uppercase tracking-[0.18em] text-[var(--faint)]">
-            <StatusDot color={color} live={isRunning} />
-            {readOnly ? 'shared read-only deck' : 'command deck'} / {effectiveStatus === 'complete' ? 'mission complete' : effectiveStatus === 'failed' ? 'mission failed' : 'mission in flight'}
-          </p>
-          <h1 className="font-display m-0 mt-3 max-w-[24ch] break-words text-[26px] font-black uppercase leading-tight tracking-[0.02em] text-[var(--ink)] sm:text-[32px]">
-            {detail?.name ?? 'Untitled mission'}
-          </h1>
-          <p className="font-mono m-0 mt-2 text-[11px] uppercase tracking-[0.14em] text-[var(--faint)]">
-            {activeProvider} / {activeModel}
-          </p>
+    <div className="flex flex-col gap-6 pb-20 pt-4">
+      {/* ===================================================================
+          MISSION COMMAND DECK HEADER
+          =================================================================== */}
+      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#0c101a]/90 p-6 shadow-2xl backdrop-blur-2xl">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+              <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-slate-300">
+                {readOnly ? 'Shared Read-Only Snapshot' : 'Mission Control Deck'} ·{' '}
+                <span style={{ color }}>{effectiveStatus.toUpperCase()}</span>
+              </span>
+            </div>
+            <h1 className="font-display mt-2 text-[26px] font-extrabold text-white sm:text-[32px] tracking-tight">
+              {detail?.name ?? 'Untitled Mission'}
+            </h1>
+            <p className="font-mono mt-1 text-[12px] text-slate-400">
+              {activeProvider} · {activeModel}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 font-mono text-[11.5px] text-slate-300">
+              <Clock size={13} className="text-cyan-400" />
+              <span>T+{formatDuration(elapsed)}</span>
+            </div>
+
+            {exportData && <MissionToolbar d={exportData} />}
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="font-mono flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.12em] no-print">
-            <span className="border border-[var(--line-strong)] px-2.5 py-1.5" style={{ color }}>
-              {effectiveStatus}
-            </span>
-            <span className="border border-[var(--line)] px-2.5 py-1.5">t+{formatDuration(elapsed)}</span>
+        {/* Executive Metric Cards Strip */}
+        <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/[0.06] pt-5 sm:grid-cols-5">
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Active Agents</span>
+            <p className="font-display m-0 mt-1 text-[18px] font-bold text-white">{displayAgents.length || 4}</p>
+            <span className="font-mono text-[10px] text-slate-500">Autonomous Lanes</span>
           </div>
-          {exportData && <MissionToolbar d={exportData} />}
+
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Swarm Consensus</span>
+            <p className="font-display m-0 mt-1 text-[18px] font-bold text-cyan-400">{confidence}%</p>
+            <span className="font-mono text-[10px] text-slate-500">Weighted Average</span>
+          </div>
+
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Open Dissent</span>
+            <p className="font-display m-0 mt-1 text-[18px] font-bold text-amber-400">{dissent}</p>
+            <span className="font-mono text-[10px] text-slate-500">Adversarial Critiques</span>
+          </div>
+
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Knowledge Graph</span>
+            <p className="font-display m-0 mt-1 text-[18px] font-bold text-emerald-400">{displayNodes.length} / {displayEdges.length}</p>
+            <span className="font-mono text-[10px] text-slate-500">Nodes / Edges</span>
+          </div>
+
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Token Volume</span>
+            <p className="font-display m-0 mt-1 text-[18px] font-bold text-indigo-400">{tokens}</p>
+            <span className="font-mono text-[10px] text-slate-500">Tokens Processed</span>
+          </div>
         </div>
-      </div>
-
-      <div className="no-print grid grid-cols-2 gap-px border border-[var(--line)] bg-[var(--line)] sm:grid-cols-5" role="list" aria-label="Mission metrics">
-        {[
-          ['agents', `${displayAgents.length || '—'}`, 'active lanes'],
-          ['confidence', `${confidence}%`, 'swarm average'],
-          ['dissent', `${dissent}`, 'open attacks'],
-          ['graph', `${displayNodes.length} / ${displayEdges.length}`, 'nodes / edges'],
-          ['tokens', `${tokens}`, 'consumed'],
-        ].map(([label, value, note]) => (
-          <div key={label} role="listitem" className="metric-cell bg-[var(--paper-2)] px-3 py-3">
-            <span className="rack-index block">{label}</span>
-            <span className="font-mono mt-1 block text-[16px] text-[var(--ink)]">{value}</span>
-            <span className="font-mono mt-1 block text-[9px] uppercase tracking-[0.1em] text-[var(--faint)]">{note}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="no-print">
-        <MissionBus agents={displayAgents} nodes={displayNodes} edges={displayEdges} />
       </div>
 
       {error && (
-        <p className="font-mono m-0 border border-[var(--bad)] bg-[color-mix(in_oklch,var(--bad)_10%,transparent)] px-4 py-2 text-[12px] text-[var(--bad)]" role="alert">
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-[13px] text-rose-400">
           {error}
-        </p>
+        </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[300px_1fr_340px]">
-        {/* left: roster + telemetry */}
-        <div className="no-print flex flex-col gap-4">
-          <Panel title="Swarm roster" index="ACT.00" right={<StatusDot color={connected || readOnly ? color : 'var(--bad)'} live={(connected || readOnly) && !effectiveStatus.includes('complete')} />}>
-            <div className="px-4 pt-4">
+      {/* ===================================================================
+          THREE-COLUMN WORKBENCH
+          =================================================================== */}
+      <div className="grid gap-6 lg:grid-cols-[310px_1fr_330px]">
+        {/* Left Column: Swarm Roster & Radar */}
+        <div className="flex flex-col gap-6">
+          <Panel
+            title="Swarm Orbital Roster"
+            right={
+              <StatusDot
+                color={connected || readOnly ? color : 'var(--bad)'}
+                live={(connected || readOnly) && !effectiveStatus.includes('complete')}
+              />
+            }
+          >
+            <div className="p-4">
               <AgentOrbit agents={displayAgents} />
             </div>
-            <div className="mt-2">
-              <AgentStrip agents={displayAgents} />
-            </div>
+            <AgentStrip agents={displayAgents} />
           </Panel>
-          <Panel title="Elapsed telemetry" index="TEL.01">
-            <div className="space-y-2 px-4 py-3">
-              <Step label="elapsed" value={formatDuration(elapsed)} />
-              <Step label="tokens" value={String(tokens)} />
-              <Step label="stream" value={`${displayMessages.length} msgs`} />
-              <Step label="graph" value={`${displayNodes.length} n / ${displayEdges.length} e`} />
-              {detail?.report && detail?.analytics && (
+
+          <Panel title="Execution Telemetry">
+            <div className="p-4 space-y-2.5">
+              <Step label="Time Elapsed" value={formatDuration(elapsed)} />
+              <Step label="Tokens Consumed" value={String(tokens)} />
+              <Step label="Signals Streamed" value={`${displayMessages.length} msgs`} />
+              <Step label="Knowledge Entities" value={`${displayNodes.length} nodes`} />
+              {detail?.analytics && (
                 <>
-                  <Step label="est. cost" value={`$${detail.analytics.estCostUsd.toFixed(5)}`} />
-                  <Step label="finished" value={formatClock(detail.analytics.completedAt)} />
+                  <Step label="Estimated Cost" value={`$${detail.analytics.estCostUsd.toFixed(5)}`} />
+                  <Step label="Finished" value={formatClock(detail.analytics.completedAt)} />
                 </>
               )}
             </div>
           </Panel>
         </div>
 
-        {/* center: stream / report / replay */}
-        <div className="column">
+        {/* Center Column: Live Stream / Report / Replay */}
+        <div>
           <Panel
-            title={TABS.find((t) => t.key === activeTab)?.label ?? 'Live stream'}
-            index={TABS.find((t) => t.key === activeTab)?.index ?? 'STR.02'}
+            title={TABS.find((t) => t.key === activeTab)?.label ?? 'Live Stream'}
             accent
             right={
-              <div className="segmented no-print" role="tablist" aria-label="Mission deck views">
+              <div className="segmented no-print">
                 {TABS.map((t) => (
                   <button
                     key={t.key}
+                    type="button"
                     role="tab"
                     aria-selected={activeTab === t.key}
                     onClick={() => setActiveTab(t.key)}
+                    className="flex items-center gap-1.5"
                   >
-                    {t.label}
+                    {t.icon}
+                    <span>{t.label}</span>
                   </button>
                 ))}
               </div>
@@ -192,10 +236,16 @@ export function MissionDashboard({ initial, readOnly = false }: { initial: Missi
           </Panel>
         </div>
 
-        {/* right: graph */}
-        <Panel title="Knowledge graph" index="GRP.03" right={<StatusDot color={displayNodes.length > 0 ? 'var(--ok)' : 'var(--faint)'} />}>
-          <KnowledgeGraph nodes={displayNodeMap} edges={displayEdges} />
-        </Panel>
+        {/* Right Column: Knowledge Graph */}
+        <div>
+          <Panel
+            title="Semantic Knowledge Graph"
+            index="GRAPH.03"
+            right={<StatusDot color={displayNodes.length > 0 ? '#10b981' : '#64748b'} />}
+          >
+            <KnowledgeGraph nodes={displayNodeMap} edges={displayEdges} height={420} />
+          </Panel>
+        </div>
       </div>
     </div>
   );
