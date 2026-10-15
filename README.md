@@ -2,6 +2,7 @@
 
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen?style=for-the-badge&logo=vercel)](https://swarm-web-two.vercel.app/)
 [![API Health](https://img.shields.io/badge/api-health-green?style=for-the-badge&logo=express)](https://swarm-api-lyart.vercel.app/api/health)
+[![CI](https://github.com/Bhagyansh07/SWARM/actions/workflows/ci.yml/badge.svg)](https://github.com/Bhagyansh07/SWARM/actions/workflows/ci.yml)
 [![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/next.js-14-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
 
@@ -44,7 +45,7 @@ SWARM is a mission-control workbench for coordinating AI agent swarms. Four spec
 |---|---|
 | **Frontend** | [Next.js 14](https://nextjs.org/) (App Router), [Tailwind CSS](https://tailwindcss.com/), [React Flow](https://reactflow.dev/), [Zustand](https://zustand-demo.pmnd.rs/), [Phosphor Icons](https://phosphoricons.com/) |
 | **Backend** | [Node.js 20+](https://nodejs.org/), [Express](https://expressjs.com/), [Zod](https://zod.dev/), [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) |
-| **AI** | [Groq](https://console.groq.com/) (qwen/qwen3.8-27b), independent judge (llama-3.3-70b-versatile), deterministic fallback |
+| **AI** | [Groq](https://console.groq.com/) (qwen/qwen3.8-27b), eval judge (qwen/qwen3.8-32b), deterministic fallback |
 | **Design** | OKLCH palette, semantic CSS tokens, fluid typography, cinematic landing, luxury minimal aesthetic |
 
 ## Architecture
@@ -67,13 +68,18 @@ Missions run in the background with throttled snapshots to ensure smooth, server
 
 ## Quick Start
 
-```bash
-# Install dependencies
-npm install
+SWARM is a monorepo: `backend/` and `frontend/` each carry their own
+`package-lock.json`, so a root `npm install` only pulls the CLI tooling.
 
-# Run backend + frontend concurrently
+```bash
+# 1. Install dependencies for both packages
+npm run setup
+
+# 2. Run backend + frontend concurrently
 npm run dev
 ```
+
+Skip `npm run setup` on later runs — step 2 only.
 
 Open [http://localhost:3000](http://localhost:3000). Pick a template, add a subject, hit **Deploy** — the mission launches in the background with live reasoning streams.
 
@@ -105,6 +111,7 @@ Two Vercel projects in this monorepo:
 
 | Command | Description |
 |---|---|
+| `npm run setup` | Install `backend/` + `frontend/` dependencies |
 | `npm run dev` | Run backend + frontend concurrently |
 | `npm run build` | Type-safe production build for both packages |
 | `npm run typecheck` | Strict TypeScript check on both packages |

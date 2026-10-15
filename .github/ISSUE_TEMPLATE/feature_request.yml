@@ -1,0 +1,37 @@
+name: Feature request
+description: Propose something this project should do.
+title: "[feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is a maintained portfolio project. A clear problem statement is
+        more useful than a proposed implementation.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that the project does not let you do today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What you think should change, in a sentence or two.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: What you do instead right now, and why it falls short.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the open and closed issues for a duplicate.
+          required: true

@@ -1,0 +1,68 @@
+name: Bug report
+description: Something behaves differently from what it should do.
+title: "[bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report.
+
+        **Security or privacy problem? Do not use this form.** Use the private
+        report link in the right-hand column instead.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, in your own words.
+      placeholder: The mission reported success but no report was produced.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: The shortest sequence that shows it. Paste the input you used if there is one.
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Commit SHA on main, or the deployment URL.
+      placeholder: main @ abc1234
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where
+      options:
+        - Frontend
+        - Backend
+        - Both
+        - Not sure
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the open and closed issues for a duplicate.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true
