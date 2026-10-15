@@ -1,39 +1,39 @@
 'use client';
 
-import { Monitor, Moon, Sun } from '@phosphor-icons/react/dist/ssr';
-import { useTheme, type Theme } from './theme-provider';
+import { Moon, Sun } from '@phosphor-icons/react/dist/ssr';
+import { useTheme } from './theme-provider';
+import { useEffect, useState } from 'react';
 
-const OPTIONS: Array<{ value: Theme; label: string; Icon: typeof Sun }> = [
-  { value: 'light', label: 'Light', Icon: Sun },
-  { value: 'system', label: 'System', Icon: Monitor },
-  { value: 'dark', label: 'Dark', Icon: Moon },
-];
-
-/** Three-way appearance control: Light / System / Dark. */
+/** Clean Day / Night toggle (Sun & Moon only, zero hydration mismatch) */
 export function ThemeToggle({ className = '' }: { className?: string }) {
-  const { theme, setTheme } = useTheme();
+  const { resolved, toggle } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isDark = resolved === 'dark';
 
   return (
-    <div
-      role="radiogroup"
-      aria-label="Color theme"
-      className={`segmented ${className}`}
+    <button
+      id="theme-toggle-btn"
+      data-testid="theme-toggle"
+      type="button"
+      onClick={toggle}
+      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      className={`inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--paper-3)]/80 text-[var(--dim)] transition-all hover:border-[var(--line-strong)] hover:text-[var(--ink)] active:scale-95 cursor-pointer ${className}`}
     >
-      {OPTIONS.map(({ value, label, Icon }) => (
-        <button
-          key={value}
-          type="button"
-          role="radio"
-          aria-checked={theme === value}
-          aria-selected={theme === value}
-          title={`${label} theme`}
-          onClick={() => setTheme(value)}
-          className="!px-2 !py-1.5"
-        >
-          <Icon size={14} weight={theme === value ? 'bold' : 'regular'} aria-hidden />
-          <span className="sr-only">{label} theme</span>
-        </button>
-      ))}
-    </div>
+      {mounted ? (
+        isDark ? (
+          <Sun size={16} weight="regular" aria-hidden />
+        ) : (
+          <Moon size={16} weight="regular" aria-hidden />
+        )
+      ) : (
+        <span className="h-3.5 w-3.5 rounded-full bg-[var(--line)] opacity-40" />
+      )}
+    </button>
   );
 }

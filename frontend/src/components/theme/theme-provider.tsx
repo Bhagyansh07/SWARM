@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { THEME_STORAGE_KEY } from './theme-script';
 
-export type Theme = 'light' | 'dark' | 'system';
+export type Theme = 'light' | 'dark';
 export type Resolved = 'light' | 'dark';
 
 interface ThemeContextValue {
@@ -23,48 +23,37 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function systemResolved(): Resolved {
-  if (typeof window === 'undefined') return 'dark';
-  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-}
-
 function readStored(): Theme {
-  if (typeof window === 'undefined') return 'system';
+  if (typeof window === 'undefined') return 'dark';
   const raw = window.localStorage.getItem(THEME_STORAGE_KEY);
-  return raw === 'light' || raw === 'dark' || raw === 'system' ? raw : 'system';
+  return raw === 'light' ? 'light' : 'dark';
 }
 
 function apply(resolved: Resolved) {
+  if (typeof document === 'undefined') return;
   const root = document.documentElement;
   root.dataset.theme = resolved;
   root.style.colorScheme = resolved;
+  if (resolved === 'dark') {
+    root.classList.add('dark');
+    root.classList.remove('light');
+  } else {
+    root.classList.add('light');
+    root.classList.remove('dark');
+  }
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('system');
+  const [theme, setThemeState] = useState<Theme>('dark');
   const [resolved, setResolved] = useState<Resolved>('dark');
 
-  // Sync initial state from storage + live-resolve the current theme.
+  // Sync initial state from storage
   useEffect(() => {
     const stored = readStored();
     setThemeState(stored);
-    const next = stored === 'system' ? systemResolved() : stored;
-    setResolved(next);
-    apply(next);
+    setResolved(stored);
+    apply(stored);
   }, []);
-
-  // Follow the OS when in system mode.
-  useEffect(() => {
-    if (theme !== 'system') return;
-    const mq = window.matchMedia('(prefers-color-scheme: light)');
-    const onChange = () => {
-      const next: Resolved = mq.matches ? 'light' : 'dark';
-      setResolved(next);
-      apply(next);
-    };
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, [theme]);
 
   const setTheme = useCallback((next: Theme) => {
     setThemeState(next);
@@ -73,9 +62,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     } catch {
       /* storage unavailable — session-only */
     }
-    const r = next === 'system' ? systemResolved() : next;
-    setResolved(r);
-    apply(r);
+    setResolved(next);
+    apply(next);
   }, []);
 
   const toggle = useCallback(() => {
@@ -90,9 +78,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 export function useTheme(): ThemeContextValue {
   const ctx = useContext(ThemeContext);
   if (!ctx) {
-    // Safe fallback so isolated components (tests, storybook) never explode.
     return {
-      theme: 'system',
+      theme: 'dark',
       resolved: 'dark',
       setTheme: () => {},
       toggle: () => {},
