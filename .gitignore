@@ -14,3 +14,8 @@ backend/dev.db-journal
 .vercel
 .next/
 .vscode/
+.agents/
+skills-lock.json
+frontend/src/app/globals.css.backup
+badge.txt
+.copilot-cockpit-logs/

@@ -6,6 +6,7 @@ import type { Config } from 'tailwindcss';
  * color value — that is the point.
  */
 const config: Config = {
+  darkMode: ['class', '[data-theme="dark"]'],
   content: ['./src/**/*.{ts,tsx}'],
   theme: {
     extend: {

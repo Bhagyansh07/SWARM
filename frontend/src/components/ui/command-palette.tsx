@@ -4,12 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   CaretRight,
+  ChartBar,
+  Cpu,
   FileCode,
   GitBranch,
   House,
   MagnifyingGlass,
-  Monitor,
   Moon,
+  RocketLaunch,
   Sun,
   Warning,
 } from '@phosphor-icons/react/dist/ssr';
@@ -35,7 +37,6 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Reset query each time the palette opens and shift focus in.
   useEffect(() => {
     if (open) {
       setQuery('');
@@ -44,7 +45,6 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     }
   }, [open]);
 
-  // Load recent missions (cheap enough; used for quick jump).
   useEffect(() => {
     if (!open) return;
     let alive = true;
@@ -60,7 +60,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   }, [open]);
 
   const cycleTheme = useCallback(() => {
-    const order: Theme[] = ['light', 'system', 'dark'];
+    const order: Theme[] = ['light', 'dark'];
     setTheme(order[(order.indexOf(theme) + 1) % order.length]);
   }, [theme, setTheme]);
 
@@ -71,30 +71,37 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     const base: Item[] = [
       {
         id: 'home',
-        label: 'Return to overview',
-        hint: '/',
-        icon: <House size={15} aria-hidden />,
+        label: 'Platform Overview & Dispatch',
+        hint: 'Overview',
+        icon: <House size={16} />,
         run: () => router.push('/'),
       },
       {
         id: 'builder',
-        label: 'Compose a mission',
-        hint: '/builder',
-        icon: <FileCode size={15} aria-hidden />,
+        label: 'Visual Workflow Orchestration Canvas',
+        hint: 'Builder',
+        icon: <Cpu size={16} />,
         run: () => router.push('/builder'),
       },
       {
         id: 'history',
-        label: 'Open the run library',
-        hint: '/history',
-        icon: <GitBranch size={15} aria-hidden />,
+        label: 'Mission Execution Library & Archive',
+        hint: 'Runs',
+        icon: <GitBranch size={16} />,
         run: () => router.push('/history'),
       },
       {
+        id: 'eval',
+        label: 'AI Methodology & Benchmark Rig',
+        hint: 'Eval',
+        icon: <ChartBar size={16} />,
+        run: () => router.push('/eval'),
+      },
+      {
         id: 'theme',
-        label: `Switch appearance (now ${theme})`,
-        hint: 'T',
-        icon: theme === 'light' ? <Sun size={15} aria-hidden /> : theme === 'dark' ? <Moon size={15} aria-hidden /> : <Monitor size={15} aria-hidden />,
+        label: `Toggle Color Theme (Current: ${theme})`,
+        hint: 'Theme',
+        icon: theme === 'light' ? <Sun size={16} /> : <Moon size={16} />,
         run: () => {
           cycleTheme();
           onClose();
@@ -107,15 +114,12 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       .map((m) => ({
         id: `mission-${m.id}`,
         label: m.name,
-        hint: 'mission',
-        icon: <CaretRight size={15} aria-hidden />,
+        hint: 'Mission Run',
+        icon: <RocketLaunch size={16} className="text-[var(--dim)]" />,
         run: () => router.push(`/mission/${m.id}`),
       }));
 
-    const all = [...base, ...missionItems];
-    return all.filter((i) => matches(i.label, i.hint ?? '', 'mission')).length === all.length
-      ? all
-      : [...base.filter((i) => matches(i.label, i.hint ?? '')), ...missionItems];
+    return [...base, ...missionItems];
   }, [query, missions, router, theme, cycleTheme, onClose]);
 
   useEffect(() => {
@@ -124,8 +128,6 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     el?.scrollIntoView({ block: 'nearest' });
   }, [cursor]);
 
-  // Global Esc + Cmd/Ctrl+K handling lives in the Topbar; here we only tie to
-  // the open prop and window key events while open.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -149,7 +151,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
   return (
     <div
-      className="fixed inset-0 z-[var(--z-overlay)] flex items-start justify-center bg-[var(--overlay)] px-4 pt-[12vh]"
+      className="fixed inset-0 z-[100] flex items-start justify-center bg-black/40 dark:bg-black/75 backdrop-blur-2xl px-4 pt-[10vh] transition-all"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -157,80 +159,113 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       aria-modal="true"
       aria-label="Command palette"
     >
-      <div className="panel w-full max-w-[560px] overflow-hidden shadow-[var(--shadow)] fade-up">
-        <div className="flex items-center gap-3 border-b border-[var(--line)] px-4 py-3">
-          <MagnifyingGlass size={16} className="text-[var(--faint)]" aria-hidden />
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setCursor(0);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                setCursor((c) => Math.min(c + 1, items.length - 1));
-              } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                setCursor((c) => Math.max(c - 1, 0));
-              } else if (e.key === 'Enter') {
-                run(items[cursor]);
-              }
-            }}
-            placeholder="Type a command or search missions…"
-            className="flex-1 bg-transparent text-[14.5px] text-[var(--ink)] placeholder:text-[var(--faint)] focus:outline-none"
-            role="combobox"
-            aria-expanded="true"
-            aria-controls="cmd-list"
-            aria-activedescendant={items[cursor]?.id}
-          />
-          <Kbd>ESC</Kbd>
-        </div>
+      {/* Volumetric ambient backlight halo behind the modal */}
+      <div className="relative w-full max-w-[620px] fade-up">
+        <div className="absolute -inset-6 rounded-[2.5rem] bg-gradient-to-b from-white/20 via-white/5 to-transparent dark:from-white/12 dark:via-white/5 dark:to-transparent opacity-85 blur-2xl pointer-events-none" />
 
-        <div
-          ref={listRef}
-          id="cmd-list"
-          role="listbox"
-          className="max-h-[46vh] overflow-y-auto py-2"
-        >
-          {items.length === 0 && (
-            <p className="flex items-center gap-2 px-4 py-6 text-[12.5px] text-[var(--faint)]">
-              <Warning size={14} aria-hidden />
-              Nothing matches “{query}”. Try a mission name or a route.
-            </p>
-          )}
-          {items.map((item, i) => (
-            <button
-              key={item.id}
-              role="option"
-              aria-selected={i === cursor}
-              data-cmd-index={i}
-              onMouseEnter={() => setCursor(i)}
-              onClick={() => run(item)}
-              className={`flex w-full items-center gap-3 px-4 py-2.5 text-left ${i === cursor ? 'bg-[var(--signal-dim)]' : ''}`}
-            >
-              <span
-                className="flex h-7 w-7 shrink-0 items-center justify-center border border-[var(--line)] text-[var(--dim)]"
-                style={i === cursor ? { borderColor: 'var(--signal)', color: 'var(--signal)' } : undefined}
-              >
-                {item.icon}
+        <div className="relative glass-bezel-outer shadow-[0_30px_80px_-15px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.22)]">
+          <div className="glass-bezel-inner overflow-hidden border border-[var(--line-strong)]">
+            {/* Search Input Bar */}
+            <div className="flex items-center gap-3.5 border-b border-[var(--line)] bg-[var(--paper-2)]/60 px-5 py-4 backdrop-blur-xl">
+              <MagnifyingGlass size={19} className="text-[var(--ink)] opacity-75 shrink-0" aria-hidden />
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setCursor(0);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setCursor((c) => Math.min(c + 1, items.length - 1));
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setCursor((c) => Math.max(c - 1, 0));
+                  } else if (e.key === 'Enter') {
+                    run(items[cursor]);
+                  }
+                }}
+                placeholder="Search actions, workflows, benchmarks, or past runs..."
+                className="flex-1 bg-transparent text-[15px] font-medium text-[var(--ink)] placeholder:text-[var(--faint)] focus:outline-none"
+                role="combobox"
+                aria-expanded="true"
+                aria-controls="cmd-list"
+                aria-activedescendant={items[cursor]?.id}
+              />
+              <span className="glass-pill rounded-full px-2.5 py-0.5 font-mono text-[10.5px] font-semibold text-[var(--faint)] uppercase tracking-wider">
+                ESC
               </span>
-              <span className="flex-1 truncate text-[13.5px] text-[var(--ink)]">{item.label}</span>
-              {item.hint && (
-                <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--faint)]">{item.hint}</span>
-              )}
-            </button>
-          ))}
-        </div>
+            </div>
 
-        <div className="flex items-center justify-between border-t border-[var(--line)] px-4 py-2">
-          <p className="font-mono m-0 text-[9.5px] uppercase tracking-[0.14em] text-[var(--faint)]">
-            ↑ ↓ to move · enter to run
-          </p>
-          <p className="font-mono m-0 text-[9.5px] uppercase tracking-[0.14em] text-[var(--faint)]">
-            {items.length} results
-          </p>
+            {/* Results List */}
+            <div
+              ref={listRef}
+              id="cmd-list"
+              role="listbox"
+              className="max-h-[46vh] overflow-y-auto p-2.5 space-y-1.5"
+            >
+              {items.length === 0 && (
+                <div className="flex items-center gap-2.5 p-6 text-[13px] text-[var(--dim)]">
+                  <Warning size={16} />
+                  <span>No matching commands found for &ldquo;{query}&rdquo;.</span>
+                </div>
+              )}
+              {items.map((item, i) => {
+                const isSelected = i === cursor;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    data-cmd-index={i}
+                    onMouseEnter={() => setCursor(i)}
+                    onClick={() => run(item)}
+                    className={`flex w-full items-center gap-3.5 rounded-xl px-4 py-3 text-left transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-[var(--ink)] text-[var(--paper)] shadow-md scale-[1.01]'
+                        : 'text-[var(--dim)] hover:bg-[var(--paper-3)]/60 hover:text-[var(--ink)]'
+                    }`}
+                  >
+                    <span
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-all ${
+                        isSelected
+                          ? 'border-transparent bg-[var(--paper)] text-[var(--ink)] shadow-xs'
+                          : 'glass-pill text-[var(--dim)]'
+                      }`}
+                    >
+                      {item.icon}
+                    </span>
+                    <span className={`flex-1 truncate text-[14px] ${isSelected ? 'font-semibold text-[var(--paper)]' : 'font-medium text-[var(--ink)]'}`}>
+                      {item.label}
+                    </span>
+                    {item.hint && (
+                      <span
+                        className={`font-mono rounded-full px-2.5 py-0.5 text-[10px] uppercase tracking-wider ${
+                          isSelected
+                            ? 'bg-[var(--paper)]/20 text-[var(--paper)] font-semibold'
+                            : 'glass-pill text-[var(--faint)]'
+                        }`}
+                      >
+                        {item.hint}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Footer shortcuts */}
+            <div className="flex items-center justify-between border-t border-[var(--line)] bg-[var(--paper-3)]/40 px-5 py-2.5 backdrop-blur-md">
+              <p className="font-mono m-0 text-[10.5px] uppercase tracking-wider text-[var(--faint)]">
+                ↑ ↓ navigate · ↵ select · ESC close
+              </p>
+              <p className="font-mono m-0 text-[10.5px] uppercase tracking-wider text-[var(--faint)]">
+                {items.length} commands available
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
