@@ -5,10 +5,25 @@ on:
     branches: [main]
   pull_request:
 
+# A push during review cancels the run it supersedes. The check that matters is
+# the one against the commit being reviewed, not the one that started first.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Both jobs only read the checkout: they install, typecheck, test and build, and
+# publish nothing. The default token permission is read-write over the whole
+# repository, which is far more than this workflow uses.
+permissions:
+  contents: read
+
 jobs:
   backend:
     name: backend · typecheck + tests + build
     runs-on: ubuntu-latest
+    # A job that hangs would otherwise hold a runner for GitHub's six-hour
+    # default. This job runs in about a minute, so 15 is headroom, not a budget.
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: backend
@@ -27,6 +42,8 @@ jobs:
   frontend:
     name: frontend · typecheck + build
     runs-on: ubuntu-latest
+    # Typecheck plus `next build`; also about a minute when the npm cache is warm.
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
