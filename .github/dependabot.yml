@@ -1,21 +1,79 @@
-﻿# Three npm manifests (root, backend, frontend) plus the workflow actions, and
-# nothing was refreshing any of them. Dependabot opens one pull request per
-# update; auto-merge is left off so a bump lands only after CI has run against it.
+# Three npm manifests (root, backend, frontend) plus the workflow actions.
+#
+# Minor and patch updates are batched into one pull request per ecosystem, so
+# the queue stays short instead of one PR per package. Major updates are a
+# different kind of work -- a migration with its own test pass -- so they are
+# held rather than offered: Next 14 -> 16, Tailwind 3 -> 4, TypeScript 5 -> 7,
+# zod 3 -> 4, express 4 -> 5 are each a project. Delete the matching line from
+# `ignore:` when you are ready to do that migration on purpose.
+#
+# Auto-merge is deliberately absent: every bump lands through CI.
 version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 3
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: "concurrently"
+        update-types: ["version-update:semver-major"]
+
   - package-ecosystem: "npm"
     directory: "/backend"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 3
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: "express"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "zod"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 3
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 3
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: "actions/checkout"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "actions/setup-node"
+        update-types: ["version-update:semver-major"]
