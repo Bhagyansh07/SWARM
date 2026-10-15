@@ -14,14 +14,14 @@
     "@phosphor-icons/react": "^2.1.10",
     "jspdf": "^2.5.2",
     "next": "^14.2.15",
-    "react": "^18.3.1",
+    "react": "^19.3.0",
     "react-dom": "^18.3.1",
     "reactflow": "^11.11.4",
     "zustand": "^4.5.5"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",
-    "@types/react": "^18.3.11",
+    "@types/react": "^19.3.0",
     "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.47",
