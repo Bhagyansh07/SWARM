@@ -1,192 +1,130 @@
 # SWARM
 
-**Deploy a swarm. Watch it think.**
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen?style=for-the-badge&logo=vercel)](https://swarm-web-two.vercel.app/)
+[![API Health](https://img.shields.io/badge/api-health-green?style=for-the-badge&logo=express)](https://swarm-api-lyart.vercel.app/api/health)
+[![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/next.js-14-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
 
-SWARM is a mission-control workbench for coordinating AI agent swarms. Four specialist
-agents — **Kai** (researcher), **Lyra** (analyst), **Vex** (critic), and **Nova**
-(synthesizer) — take turns reasoning about a mission brief, challenging each other's
-work, and converging on a final report. Every turn streams live to your browser as a
-reasoning stream, telemetry, and a growing knowledge graph.
+> **Deploy a swarm. Watch it think.**
 
-It runs entirely on the **Groq free tier** (or falls back to a deterministic simulation
-engine when no API key is configured — the demo works either way).
+SWARM is a mission-control workbench for coordinating AI agent swarms. Four specialist agents — **Kai** (researcher), **Lyra** (analyst), **Vex** (critic), and **Nova** (synthesizer) — take turns reasoning about a mission brief, challenging each other's work, and converging on a final report. Every turn streams live with real-time reasoning, telemetry, and a growing knowledge graph.
 
-```
-brief ──▶ researcher ──▶ critic ──▶ analyst ──▶ synthesizer ──▶ verdict
-             │            │           │             │
-             └────────────┴─── shared findings ─────┘
-```
+**Built for premium, executive-grade UX** with a refined dark/light theme, cinematic landing experience, and enterprise-focused design. Runs entirely on the **Groq free tier** with automatic deterministic simulation fallback.
+
+## Preview
+
+![SWARM Landing Page - Dark Mode](docs/screenshots/01-landing-dark.png)
+
+![SWARM Landing Page - Light Mode](docs/screenshots/02-landing-light.png)
 
 ## Features
 
-- **Mission templates** — deep research, product post-mortem, startup validation, code review
-- **Live reasoning stream** — every evidence byte, critique and weighted signal in real time
-- **Agent orbit** — per-agent status, phase, confidence and token telemetry
-- **Knowledge graph** — extracted facts, entities and claims connected as the mission runs
-- **Final report** — verdict, key findings, risks, and the dissent that never resolved
-- **Run library** — every past mission, searchable, filterable, replayable, deletable
-- **Benchmark rig** — six fixed briefs scored single-LLM vs the swarm by a *different* judge
-  model; numbers are measured live, losses included (`/eval`)
-- **Export anywhere** — branded PDF, Markdown and JSON of any report, plus copy-to-clipboard
-- **Share links** — HMAC-signed, read-only snapshots of a finished mission
-- **Light & dark** — full token-driven theme with a no-flash bootstrap and system following
-- **Command palette** — `Ctrl/⌘ K` to jump anywhere, plus keyboard-first navigation
-- **Zero-config fallback** — provider auto-detects Groq key; otherwise runs the simulator
+- **Mission Templates** — deep research, product post-mortem, startup validation, code review
+- **Live Reasoning Stream** — every evidence byte, critique, and weighted signal in real time
+- **Agent Orbit** — per-agent status, phase, confidence and token telemetry
+- **Knowledge Graph** — extracted facts, entities and claims connected as the mission runs
+- **Final Report** — verdict, key findings, risks, and the dissent that never resolved
+- **Run Library** — every past mission, searchable, filterable, replayable, deletable
+- **Benchmark Rig** — six fixed briefs scored single-LLM vs the swarm by an independent judge model
+- **Export Anywhere** — branded PDF, Markdown and JSON of any report, plus copy-to-clipboard
+- **Share Links** — HMAC-signed, read-only snapshots of a finished mission
+- **Refined Light & Dark** — dual-theme with pre-paint bootstrap and no FOUC
+- **Command Palette** — `Ctrl/⌘ K` for lightning-fast navigation
+- **Zero-Config Fallback** — Groq auto-detect with deterministic simulator if no key provided
 
-## Stack
+## Screenshots
 
-| Layer     | Tech |
-|-----------|------|
-| Backend   | Node 20+, Express, Zod, JSON document store (disk or Vercel Blob) |
-| AI        | Groq (`qwen/qwen3.8-27b`), judge model `llama-3.3-70b-versatile`, deterministic simulation fallback |
-| Frontend  | Next.js 14 (App Router), Tailwind CSS, Phosphor icons, Zustand, React Flow |
-| Design    | OKLCH warm-graphite palette, single signal accent, Archivo / IBM Plex Mono |
+| Mission History | Benchmark Evaluation | Workflow Builder |
+|---|---|---|
+| ![SWARM History](docs/screenshots/03-history-dark.png) | ![SWARM Eval](docs/screenshots/04-eval-dark.png) | ![SWARM Builder](docs/screenshots/05-builder-dark.png) |
+
+## Tech Stack
+
+| Layer | Tech |
+|---|---|
+| **Frontend** | [Next.js 14](https://nextjs.org/) (App Router), [Tailwind CSS](https://tailwindcss.com/), [React Flow](https://reactflow.dev/), [Zustand](https://zustand-demo.pmnd.rs/), [Phosphor Icons](https://phosphoricons.com/) |
+| **Backend** | [Node.js 20+](https://nodejs.org/), [Express](https://expressjs.com/), [Zod](https://zod.dev/), [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) |
+| **AI** | [Groq](https://console.groq.com/) (qwen/qwen3.8-27b), independent judge (llama-3.3-70b-versatile), deterministic fallback |
+| **Design** | OKLCH palette, semantic CSS tokens, fluid typography, cinematic landing, luxury minimal aesthetic |
 
 ## Architecture
 
-Missions are long-running, so the API owns them: a launch request persists a
-"queued" mission document and hands the run to the background (`waitUntil` on
-Vercel). The orchestrator mutates an in-memory `MissionRecord` and flushes
-throttled JSON snapshots to the store every ~200 ms. The browser follows a
-mission by **polling** `GET /api/missions/:id` — no socket server, so it deploys
-cleanly to serverless.
+Missions run in the background with throttled snapshots to ensure smooth, serverless deployment on Vercel.
 
-```
+```text
 ┌──────────────────────────────┐        ┌──────────────────────────────┐
-│  frontend (Next.js)          │        │  backend (Express)           │
-│  - landing + launcher        │  REST  │  - /api/health, /missions    │
-│  - mission dashboard (poll)  │◀──────▶│  - orchestrator state machine│
-│  - run library               │        │  - agent runtime (4 lanes)   │
-│  - Zustand polling store     │        │  - background mission runner │
+│  Frontend (Next.js)          │        │  Backend (Express)           │
+│  - Landing + Launcher        │  REST  │  - Orchestrator state machine│
+│  - Mission Dashboard (poll)  │◀──────▶│  - Agent runtime (4 lanes)   │
+│  - Run Library               │        │  - Background mission runner │
 └──────────────────────────────┘        └──────────────┬───────────────┘
                                                        │ MissionStore
                                           ┌────────────▼─────────────┐
-                                          │  disk (dev) / Vercel Blob │
+                                          │ Disk (dev) / Vercel Blob │
                                           └───────────────────────────┘
                                           LLM: Groq → auto-fallback → simulation
 ```
 
-The store is a tiny abstraction with two backends: a folder of JSON files for
-local development, and **Vercel Blob** in production (`BLOB_READ_WRITE_TOKEN`).
-
-## Quick start
+## Quick Start
 
 ```bash
-npm install              # installs root, backend and frontend
-npm run dev              # backend :8080 + frontend :3000
+# Install dependencies
+npm install
+
+# Run backend + frontend concurrently
+npm run dev
 ```
 
-Open http://localhost:3000. Pick a template, drop in a subject, hit **Deploy** —
-the mission launches in the background and the dashboard polls its live
-reasoning stream, telemetry and knowledge graph.
+Open [http://localhost:3000](http://localhost:3000). Pick a template, add a subject, hit **Deploy** — the mission launches in the background with live reasoning streams.
 
-### Using live Groq inference (optional)
+### Optional: Live Groq Inference
 
-Create `backend/.env` (or copy from `backend/.env.example`):
+Create `backend/.env`:
 
 ```env
 GROQ_API_KEY=gsk_...
 GROQ_MODEL=qwen/qwen3.8-27b
-AI_PROVIDER=auto        # auto | groq | simulation
-# SWARM_DATA_DIR=./.swarm-data   # where local mission JSON documents live
+AI_PROVIDER=auto
 ```
 
-With no key (or `AI_PROVIDER=simulation`), SWARM runs the deterministic simulator —
-same protocol, same UI, zero cost.
+With no key or `AI_PROVIDER=simulation`, SWARM runs the deterministic simulator — identical protocol and UI.
 
-## Deploy
+## Deployment
 
-Two Vercel projects in one repo:
+Two Vercel projects in this monorepo:
 
-1. **API** — root directory `backend`, entry `src/serverless.ts` (`vercel.json`
-   builds it with `@vercel/node`). Attach a **Blob** store; Vercel injects
-   `BLOB_READ_WRITE_TOKEN`. Set `GROQ_API_KEY`, `GROQ_MODEL`, `AI_PROVIDER`,
-   `CORS_ORIGIN`.
-2. **Web** — root directory `frontend`. Set `BACKEND_URL` to the API project's
-   URL; Next rewrites `/api/*` to it, so the browser only ever talks to one origin.
+1. **API** — Root `backend`, entry `src/serverless.ts`. Add **Vercel Blob** store and set env: `GROQ_API_KEY`, `GROQ_MODEL`, `AI_PROVIDER`, `CORS_ORIGIN`, `BLOB_READ_WRITE_TOKEN` (injected).
+2. **Web** — Root `frontend`. Set `BACKEND_URL` to API URL; rewrites handle `/api/*` so browser talks to single origin.
 
-## Benchmark rig
+## Live Demo
 
-The `/eval` page answers one question with measured numbers instead of adjectives:
-*does multi-agent orchestration actually beat a single call to the same model?*
-
-- **Fixed catalogue** — six briefs across strategy, research, review and operations,
-  versioned in `backend/src/eval/tasks.ts` and never tuned to favour a winner.
-- **Matched comparison** — the baseline is one LLM call; SWARM runs the *same model*
-  through its four-agent pipeline. Only orchestration differs.
-- **Independent judge** — a stronger, different model (`llama-3.3-70b-versatile`)
-  scores both answers blind on accuracy, completeness and actionability (1–5).
-- **Honest reporting** — ties and losses are shown, along with latency and token cost.
-
-Results are produced on demand by the deployed API (rate-limited) and cached in the
-store. Regenerate the full set locally — needs a Groq key — with:
-
-```bash
-GROQ_API_KEY=gsk_... npm run eval --prefix backend   # writes eval-results.json
-```
-
-### How to read the numbers
-
-| Metric | Baseline | SWARM |
-|--------|----------|-------|
-| Quality | judge score / 5 | judge score / 5 |
-| Latency | wall-clock for one call | wall-clock for the full pipeline |
-| Tokens | single response | all agent turns combined |
-
-Quality above 4.0 for the swarm with a positive mean delta means orchestration is
-adding real signal; a near-zero delta would be reported just as plainly.
+- **🌐 Web App:** [https://swarm-web-two.vercel.app/](https://swarm-web-two.vercel.app/)
+- **🔧 API Health:** [https://swarm-api-lyart.vercel.app/api/health](https://swarm-api-lyart.vercel.app/api/health)
 
 ## Scripts
 
-| Command | What it does |
-|---------|--------------|
-| `npm run setup` | installs backend + frontend deps |
-| `npm run dev` | backend + frontend concurrently |
-| `npm run build` | type-safe prod build of both packages |
-| `npm start` (backend) | serves compiled `dist/server.js` |
-| `npm run typecheck` | strict tsc on both packages |
-| `npm test` | vitest suite (backend) |
-| `npm run eval --prefix backend` | run the benchmark catalogue, write `eval-results.json` |
+| Command | Description |
+|---|---|
+| `npm run dev` | Run backend + frontend concurrently |
+| `npm run build` | Type-safe production build for both packages |
+| `npm run typecheck` | Strict TypeScript check on both packages |
+| `npm test` | Run vitest suite (backend) |
+| `npm run eval --prefix backend` | Run benchmark catalogue |
 
-## API contract (summary)
+## API Summary
 
-```
-GET    /api/health          → provider, model
-GET    /api/templates       → mission templates
-GET    /api/agents          → agent roster
-POST   /api/missions        → launch { name?, template, prompt, config?{agents?} }
-GET    /api/missions        → list (status, tokens, cost)
-GET    /api/missions/:id    → full detail + report + graph (poll target)
-DELETE /api/missions/:id    → remove mission and its trace
-POST   /api/missions/:id/share → mint a share token
-GET    /api/shared/:token   → read-only snapshot of a shared mission
-GET    /api/eval            → benchmark results + summary
-POST   /api/eval/run/:taskId → run one benchmark task (rate-limited)
-```
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/health` | Provider/model info |
+| `GET` | `/api/templates` | Mission templates |
+| `POST` | `/api/missions` | Launch mission |
+| `GET` | `/api/missions` | List missions |
+| `GET` | `/api/missions/:id` | Mission details (poll target) |
+| `DELETE` | `/api/missions/:id` | Remove mission |
+| `POST` | `/api/missions/:id/share` | Mint share token |
+| `GET` | `/api/shared/:token` | Read-only shared snapshot |
+| `GET` | `/api/eval` | Benchmark results |
 
-## Design notes
+## License
 
-- **No gradients, no glassmorphism, no rounded-card soup, no WebGL.** UI is
-  1px-bordered panels, one signal accent, and flat SVG schematics.
-- **Dual theme from one token set** — every colour is a semantic CSS variable
-  (`--ink`, `--paper`, `--signal`, `--line`, …); light mode re-maps the variables,
-  never the markup. The theme is resolved before first paint by a synchronous head
-  script, so there is no flash.
-- Motion is limited to subtle fades, a blinking caret and a dashes-along-the-bus
-  tick, and respects `prefers-reduced-motion`.
-- Copy is honest — the landing shows real runtime telemetry (provider/model), and
-  the benchmark page reports measured scores, including where the swarm loses.
-  Nothing is fabricated.
-
-## Timeline
-
-- **0.1.0** — scaffold + brain spec set
-- **0.2.0** — backend complete, live Groq mission verified end-to-end
-- **0.3.0** — frontend complete: launcher, live dashboard, run library
-- **0.4.0** — serverless port: polling API, Blob-backed mission store, no 3D
-- **1.0.0** — dual-theme instrument UI, PDF/Markdown/JSON export, share links,
-  command palette, benchmark rig with an independent judge, CI
-## Live Demo
-- **Web**: [https://swarm-web-two.vercel.app/](https://swarm-web-two.vercel.app/)
-- **API Health**: [https://swarm-api-lyart.vercel.app/api/health](https://swarm-api-lyart.vercel.app/api/health)
-
+[MIT License](LICENSE)
