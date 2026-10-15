@@ -1,0 +1,21 @@
+﻿# Three npm manifests (root, backend, frontend) plus the workflow actions, and
+# nothing was refreshing any of them. Dependabot opens one pull request per
+# update; auto-merge is left off so a bump lands only after CI has run against it.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "npm"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
