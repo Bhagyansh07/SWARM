@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
+import localFont from 'next/font/local';
 import { ThemeProvider } from '@/components/theme/theme-provider';
 import { themeScript } from '@/components/theme/theme-script';
 import { ToastProvider } from '@/components/ui/toast';
@@ -8,16 +8,30 @@ import { Topbar } from '@/components/site/topbar';
 import { Footer } from '@/components/site/footer';
 import './globals.css';
 
-const display = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
+// Both faces are vendored rather than fetched through next/font/google.
+//
+// next/font/google downloads the files at build time, which made every build
+// depend on fonts.googleapis.com answering. When that call flaked the build
+// failed with a TypeError from the loader, not a font problem - it took a
+// re-run to pass. The two files below are the same latin variable fonts
+// Google served for this exact request, saved in the repository.
+//
+// Nothing changes at runtime either way: next/font self-hosts what it loads
+// and serves it from /_next/static, so the bytes on the wire are the same.
+// The difference is that the build no longer reaches out to a third party.
+
+const display = localFont({
+  src: './fonts/plus-jakarta-sans-latin.woff2',
+  weight: '400 800',
+  style: 'normal',
   variable: '--font-display',
   display: 'swap',
 });
 
-const mono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+const mono = localFont({
+  src: './fonts/jetbrains-mono-latin.woff2',
+  weight: '400 700',
+  style: 'normal',
   variable: '--font-mono',
   display: 'swap',
 });
